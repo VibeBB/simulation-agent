@@ -6,7 +6,7 @@ upstream project pages and Debian trackers in September 2026.
 
 | Domain | Tool | Latest upstream | Packaged | Licence | v0.1 decision |
 |---|---|---|---|---|---|
-| Circuit (SPICE) | ngspice | 47 (2026-08-11) | Debian trixie 44.2, trixie-backports / testing 47, Ubuntu Noble 42+ds-3build1 | BSD-3-Clause (+ some modified-BSD / public-domain parts) | Batch subprocess `ngspice -b`; `.meas` results parsed from the log |
+| Circuit (SPICE) | ngspice | 47 (2026-08-11) | Debian trixie 44.2, trixie-backports / testing 47, Ubuntu Resolute 45.2+ds-1 | BSD-3-Clause (+ some modified-BSD / public-domain parts) | Batch subprocess `ngspice -b`; `.meas` results parsed from the log |
 | Circuit (SPICE) | PySpice | 1.5 | PyPI | GPL-3.0 | **Rejected**: GPL import into a BSD package; we only need batch mode |
 | Netlist source | `kicad-cli sch export netlist --format spice` | KiCad 10/11 | KiCad | GPL-3.0 (tool only) | Accepted as an *input file*; sim never links KiCad |
 | PDN / IR drop | padne (2.5D FEM Laplace, KiCad-native) | master | pipx / binary | GPL-3.0 | Optional subprocess adapter later; v0.1 ships a deterministic resistive-network solver |
@@ -14,7 +14,7 @@ upstream project pages and Debian trackers in September 2026.
 | Thermal resistance | built-in θ-network | — | — | BSD (ours) | Nodal solve of junction/case/board/ambient networks; Tj predicates |
 | WCA | built-in EVA / RSS / Monte Carlo | — | — | BSD (ours) | Expression models and ngspice corner runs |
 | EMC / ESD | built-in design predicates | — | — | BSD (ours) | IEC 61000-4-2 level, TVS Vrwm/Vclamp, placement, decoupling, critical length |
-| FEM | CalculiX CrunchiX (ccx) | 2.23 | Debian trixie: no `calculix-ccx` candidate (only `calculix-ccx-test` 2.22-1); Ubuntu Noble `calculix-ccx` 2.21-1 | GPL-2.0-or-later | Generate `.inp` in Python, run unmodified `ccx` as subprocess, parse `.dat`; Docker follows Noble CI |
+| FEM | CalculiX CrunchiX (ccx) | 2.23 | Debian trixie: no `calculix-ccx` candidate (only `calculix-ccx-test` 2.22-1); Ubuntu Resolute `calculix-ccx` 2.21-1build1 | GPL-2.0-or-later | Generate `.inp` in Python, run unmodified `ccx` as subprocess, parse `.dat`; Docker follows Resolute CI |
 | Meshing | gmsh | 4.15.2 | PyPI / Debian | GPL-2.0-or-later | Not needed for v0.1 (structured hex mesh generated in Python) |
 | DFT | built-in gate | — | — | BSD (ours) | Test-point coverage, probe pitch/pad size, debug header, boundary scan |
 | RF / EM | openEMS (FDTD) + CSXCAD | v0.0.36 stable, v0.37.0-rc1 (2026-06) | **Removed from Debian** (last 0.0.35 in bookworm) | GPL-3.0 (openEMS), LGPL-3.0 (CSXCAD) | Built from source in an optional image target; subprocess only |
@@ -42,19 +42,20 @@ upstream project pages and Debian trackers in September 2026.
   linked or vendored (same rule as mechanical-agent).
 - The pinned Debian Trixie repositories expose `calculix-ccx-test` `2.22-1`
   (documentation/tests) but no solver candidate for `calculix-ccx`; that test
-  package recommends the unavailable solver. Ubuntu Noble provides
-  `calculix-ccx` `2.21-1`, so the Docker base follows CI rather than building
-  a solver from source. Upstream 2.23 is ahead of that package; the element
-  types used here (C3D20R / C3D8) are stable across these versions.
+  package recommends the unavailable solver. Ubuntu Resolute provides
+  `calculix-ccx` `2.21-1build1`, so the Docker base follows CI rather than
+  building a solver from source. Upstream 2.23 is ahead of that package; the
+  element types used here (C3D20R / C3D8) are stable across these versions.
 
 ### openEMS / KiCad-rfsim
 - openEMS was dropped from Debian (tracker: "package is gone", RFP open),
   so the image builds `openEMS-Project` from a pinned tag.
 - The `v0.37.0-rc1` source build at `92b82520054a62201ac69bd905fdf2533810367f`
   installs the C++ libraries but not the Python interfaces. The image builds
-  the interfaces from `CSXCAD/python` and `openEMS/python` with Noble's
-  `cython3` `3.0.8-1ubuntu3`; the tested packages are CSXCAD `0.7.0` and
-  openEMS `0.37.0`, imported by `/usr/bin/python3`.
+  the interfaces from `CSXCAD/python` and `openEMS/python` with Resolute's
+  system Python `3.14.3` and `cython3` `3.1.6+dfsg-1ubuntu2`; the tested
+  packages are CSXCAD `0.7.0` and openEMS `0.37.0`, imported by
+  `/usr/bin/python3`.
 - KiCad-rfsim is a KiCad 10 plugin. Its GUI extracts board geometry into
   `model.json`; the separate `runner.py` imports only numpy, CSXCAD and
   openEMS and can run headless: `python runner.py model.json output_dir`.
