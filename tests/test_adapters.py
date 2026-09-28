@@ -115,6 +115,52 @@ def test_structured_spice_deck_resolves_declared_model_include(tmp_path: Path) -
     assert f'.include "{include}"' in rendered
 
 
+def test_spice_adds_one_save_all_when_no_save_exists(tmp_path: Path) -> None:
+    deck = SpiceDeck(
+        elements=[SpiceElement(ref="1", kind="R", nodes=["in", "0"], value="1k")],
+        analyses=[".op"],
+    )
+
+    rendered = render_deck(deck, tmp_path)
+    save_lines = [line.strip().lower() for line in rendered.splitlines()]
+
+    assert save_lines.count(".save all") == 1
+    assert save_lines.index(".save all") < save_lines.index(".end")
+
+
+def test_spice_preserves_save_directives_in_deck_and_includes(tmp_path: Path) -> None:
+    include = tmp_path / "saved.lib"
+    include.write_text(".SAVE v(out)\n", encoding="utf-8")
+    netlist = tmp_path / "deck.cir"
+    netlist.write_text(
+        f'.include "{include.name}"\n.SAVE v(in)\n.end\n',
+        encoding="utf-8",
+    )
+    deck = SpiceDeck(netlist_path=netlist.name, analyses=[".op"])
+
+    rendered = render_deck(deck, tmp_path)
+    save_lines = [
+        line.strip() for line in rendered.splitlines() if line.strip().lower().startswith(".save")
+    ]
+
+    assert save_lines == [".SAVE v(in)"]
+    assert f'.include "{include}"' in rendered
+    assert include.read_text(encoding="utf-8") == ".SAVE v(out)\n"
+
+
+def test_spice_include_save_prevents_default_save(tmp_path: Path) -> None:
+    include = tmp_path / "saved.lib"
+    include.write_text(".SAVE v(out)\n", encoding="utf-8")
+    netlist = tmp_path / "deck.cir"
+    netlist.write_text(f'.include "{include.name}"\n.end\n', encoding="utf-8")
+    deck = SpiceDeck(netlist_path=netlist.name, analyses=[".op"])
+
+    rendered = render_deck(deck, tmp_path)
+
+    assert not any(line.strip().lower().startswith(".save") for line in rendered.splitlines())
+    assert f'.include "{include}"' in rendered
+
+
 def test_spice_netlist_uses_declared_analyses_and_measurements(tmp_path: Path) -> None:
     netlist = tmp_path / "deck.cir"
     netlist.write_text(
