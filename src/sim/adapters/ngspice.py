@@ -7,7 +7,6 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Any
 
 from ..brief import SpiceDeck
 from ..gates import GateCheck, check
@@ -171,7 +170,7 @@ def parse_measures(text: str, deck: SpiceDeck, returncode: int = 0) -> list[Gate
 
 def run_ngspice(
     deck: SpiceDeck, workspace: Path, out_dir: Path
-) -> tuple[list[GateCheck], dict[str, Any]]:
+) -> tuple[list[GateCheck], dict[str, object]]:
     try:
         out_dir = workspace_path(out_dir, workspace)
         reject_symlinks(out_dir)

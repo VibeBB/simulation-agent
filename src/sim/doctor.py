@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
 from .tools import discover_tools
 
 
-def run_doctor(strict: bool = False) -> tuple[dict[str, Any], int]:
+def run_doctor(strict: bool = False) -> tuple[dict[str, object], int]:
     tools = discover_tools()
     required = {
         item.strip()
@@ -18,7 +17,7 @@ def run_doctor(strict: bool = False) -> tuple[dict[str, Any], int]:
         if item.strip()
     }
     missing = sorted(name for name in required if name not in tools or not tools[name]["available"])
-    report = {
+    report: dict[str, object] = {
         "schema_version": 1,
         "verdict": "fail" if strict and missing else "pass",
         "tools": tools,

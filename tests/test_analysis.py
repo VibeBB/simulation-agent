@@ -275,6 +275,28 @@ def test_emc_signal_and_decoupling_rules_fail_or_remain_unknown() -> None:
     assert incomplete_checks["emc.critical_length.CLK"] == "unknown"
 
 
+def test_emc_critical_length_requires_declared_timing_data() -> None:
+    section = EmcSection.model_validate(
+        {
+            "signals": [
+                {"net": "SHORT", "length_mm": 5, "rise_time_ns": 1},
+                {"net": "LONG", "length_mm": 50, "rise_time_ns": 1},
+                {"net": "PARTIAL", "length_mm": 5},
+                {"net": "HIGH_SPEED", "high_speed": True},
+                {"net": "POWER", "v_max": 12},
+            ]
+        }
+    )
+
+    checks = _verdicts(run_emc(section))
+
+    assert checks["emc.critical_length.SHORT"] == "pass"
+    assert checks["emc.critical_length.LONG"] == "fail"
+    assert checks["emc.critical_length.PARTIAL"] == "unknown"
+    assert checks["emc.critical_length.HIGH_SPEED"] == "unknown"
+    assert "emc.critical_length.POWER" not in checks
+
+
 def test_dft_and_fem_checks() -> None:
     section = DftSection(
         nets=["VIN"],

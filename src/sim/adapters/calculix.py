@@ -14,6 +14,27 @@ from ..gates import GateCheck, check
 from ..workspace import reject_symlinks
 
 
+def _element_lines(elements: list[tuple[int, list[int]]]) -> list[str]:
+    lines: list[str] = []
+    for element_id, connectivity in elements:
+        entries = [element_id, *connectivity]
+        lines.extend(
+            ", ".join(str(value) for value in entries[start : start + 16])
+            for start in range(0, len(entries), 16)
+        )
+    return lines
+
+
+def _node_set_lines(name: str, node_ids: list[int]) -> list[str]:
+    return [
+        f"*NSET, NSET={name}",
+        *(
+            ", ".join(str(value) for value in node_ids[start : start + 16])
+            for start in range(0, len(node_ids), 16)
+        ),
+    ]
+
+
 def generate_input(section: FemSection, job: str = "fem") -> str:
     geometry, mesh = section.geometry, section.mesh
     nx, ny, nz = mesh.nx, mesh.ny, mesh.nz
@@ -80,16 +101,10 @@ def generate_input(section: FemSection, job: str = "fem") -> str:
         "*NODE",
         *(f"{node_id}, {x:.9g}, {y:.9g}, {z:.9g}" for node_id, x, y, z in nodes),
         f"*ELEMENT, TYPE={element_type}, ELSET=EALL",
-        *(
-            f"{element_id}, " + ", ".join(str(value) for value in connectivity)
-            for element_id, connectivity in elements
-        ),
-        "*NSET, NSET=FIXED",
-        ", ".join(str(value) for value in fixed),
-        "*NSET, NSET=TIP",
-        ", ".join(str(value) for value in tip),
-        "*NSET, NSET=NALL",
-        ", ".join(str(value) for value in node_ids.values()),
+        *_element_lines(elements),
+        *_node_set_lines("FIXED", fixed),
+        *_node_set_lines("TIP", tip),
+        *_node_set_lines("NALL", list(node_ids.values())),
         "*MATERIAL, NAME=MAT",
         "*ELASTIC",
         f"{section.material.youngs_mpa:.9g}, {section.material.poisson:.9g}",
@@ -102,6 +117,8 @@ def generate_input(section: FemSection, job: str = "fem") -> str:
         *(f"{node_id}, 3, {per_node_force:.12g}" for node_id in tip),
         "*NODE PRINT, NSET=NALL",
         "U",
+        "*NODE PRINT, NSET=TIP",
+        "U",
         "*EL PRINT, ELSET=EALL",
         "S",
         "*END STEP",
@@ -109,16 +126,20 @@ def generate_input(section: FemSection, job: str = "fem") -> str:
     return "\n".join(lines) + "\n"
 
 
-def parse_dat(text: str) -> tuple[float | None, float | None]:
+def parse_dat(text: str) -> tuple[float | None, float | None, float | None]:
     displacements: list[float] = []
+    tip_displacements: list[float] = []
     stresses: list[float] = []
     in_stress = False
+    in_tip = False
     for line in text.splitlines():
         lowered = line.lower()
-        if "stresses" in lowered or "stress" in lowered:
-            in_stress = True
-        elif "displacements" in lowered or "displacement" in lowered:
+        if "displacements" in lowered or "displacement" in lowered:
             in_stress = False
+            in_tip = bool(re.search(r"\bset\s+tip\b", lowered))
+        elif "stresses" in lowered or "stress" in lowered:
+            in_stress = True
+            in_tip = False
         numbers = re.findall(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?", line)
         if len(numbers) >= 4:
             try:
@@ -127,6 +148,8 @@ def parse_dat(text: str) -> tuple[float | None, float | None]:
                 continue
             if values[0].is_integer() and not in_stress:
                 displacements.append(abs(values[3]))
+                if in_tip:
+                    tip_displacements.append(values[3])
             elif in_stress and len(values) >= 7:
                 s1, s2, s3, t12, t23, t31 = values[-6:]
                 vm = math.sqrt(
@@ -139,6 +162,7 @@ def parse_dat(text: str) -> tuple[float | None, float | None]:
                 stresses.append(vm)
     return (
         max(displacements) if displacements else None,
+        abs(sum(tip_displacements) / len(tip_displacements)) if tip_displacements else None,
         max(stresses) if stresses else None,
     )
 
@@ -196,7 +220,9 @@ def run_calculix(section: FemSection, out_dir: Path) -> tuple[list[GateCheck], d
             check("fem.cross_check", "fem", "unknown", reason),
             *analytic,
         ], {"input": str(inp), "returncode": completed.returncode}
-    deflection, stress = parse_dat(dat_path.read_text(encoding="utf-8", errors="replace"))
+    deflection, tip_deflection, stress = parse_dat(
+        dat_path.read_text(encoding="utf-8", errors="replace")
+    )
     results: list[GateCheck] = []
     if stress is None:
         results.append(
@@ -246,22 +272,24 @@ def run_calculix(section: FemSection, out_dir: Path) -> tuple[list[GateCheck], d
             )
             * 1000
         )
-        ratio = abs(deflection - beam_delta) / beam_delta if beam_delta else math.inf
-        results.append(
-            check(
-                "fem.cross_check",
-                "fem",
-                "unknown"
-                if g.length_mm / g.height_mm < 5
-                else ("pass" if ratio <= section.cross_check_tolerance else "fail"),
-                (
-                    f"beam relative difference {ratio:.9g}; "
-                    "C3D20R tip-face load is distributed equally"
-                ),
-                measured=ratio if math.isfinite(ratio) else None,
-                limit=f"≤ {section.cross_check_tolerance:.9g}",
+        if tip_deflection is None:
+            results.append(
+                check("fem.cross_check", "fem", "unknown", "tip-set displacement is missing")
             )
-        )
+        else:
+            ratio = abs(tip_deflection - beam_delta) / beam_delta if beam_delta else math.inf
+            results.append(
+                check(
+                    "fem.cross_check",
+                    "fem",
+                    "unknown"
+                    if g.length_mm / g.height_mm < 5
+                    else ("pass" if ratio <= section.cross_check_tolerance else "fail"),
+                    f"tip-face mean versus beam relative difference {ratio:.9g}",
+                    measured=ratio if math.isfinite(ratio) else None,
+                    limit=f"≤ {section.cross_check_tolerance:.9g}",
+                )
+            )
     return [*results, *analytic], {
         "input": str(inp),
         "data": str(dat_path),

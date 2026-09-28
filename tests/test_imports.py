@@ -208,6 +208,87 @@ def test_run_replaces_stale_import_records_with_declared_sources(tmp_path: Path)
     assert json.loads((out_dir / "imports.json").read_text(encoding="utf-8")) == []
 
 
+def test_emc_imports_only_voltage_for_declared_interface_nets(tmp_path: Path) -> None:
+    source = tmp_path / "board.connectivity.json"
+    source.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "system": "circuit",
+                "connectors": [
+                    {"ref": "J1", "cavities": ["1"]},
+                    {"ref": "J2", "cavities": ["1"]},
+                ],
+                "nets": [
+                    {
+                        "ref": "VIN",
+                        "signal_class": "power",
+                        "voltage_v": 12.0,
+                        "current_a": 1.0,
+                    },
+                    {
+                        "ref": "GND",
+                        "signal_class": "ground",
+                        "voltage_v": 0.0,
+                        "current_a": 0.0,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    brief_path = tmp_path / "board.sim.json"
+    brief_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "name": "board",
+                "imports": [{"path": source.name, "system": "circuit"}],
+                "emc": {
+                    "interfaces": [
+                        {
+                            "connector_ref": "J1",
+                            "nets": ["VIN"],
+                            "esd_level": 2,
+                            "external": True,
+                        }
+                    ],
+                    "protections": [
+                        {
+                            "ref": "D1",
+                            "nets": ["VIN"],
+                            "vrwm_v": 12,
+                            "vclamp_v": 18,
+                            "esd_rating_contact_kv": 8,
+                            "distance_to_connector_mm": 2,
+                        }
+                    ],
+                    "protected_devices": [{"ref": "U1", "nets": ["VIN"], "abs_max_v": 20}],
+                    "signals": [{"net": "VIN"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = run_simulation(
+        load_brief(brief_path),
+        brief_path,
+        tmp_path,
+        tmp_path / "out" / "board",
+        {"emc"},
+    )
+    checks: dict[str, dict[str, object]] = {
+        str(item["id"]): item for item in cast(list[dict[str, object]], report["checks"])
+    }
+
+    assert checks["emc.interface.J2"]["verdict"] == "unknown"
+    assert checks["emc.interface.J2"]["detail"] == "declare the nets of this external connector"
+    assert checks["emc.protection.J1.VIN"]["verdict"] == "pass"
+    assert "emc.critical_length.VIN" not in checks
+    assert not any(check_id.startswith("emc.signal.") for check_id in checks)
+
+
 def test_run_rejects_symlinked_generated_output(tmp_path: Path) -> None:
     brief_path = tmp_path / "board.sim.json"
     brief_path.write_text(
