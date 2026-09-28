@@ -22,6 +22,7 @@ INCLUDE_RE = re.compile(
 )
 ANALYSIS_RE = re.compile(r"^\s*\.(?:ac|dc|noise|op|pz|tf|tran)\b", re.IGNORECASE)
 MEASURE_RE_LINE = re.compile(r"^\s*\.meas(?:ure)?\b", re.IGNORECASE)
+SAVE_RE = re.compile(r"^\s*\.save(?:\s|$)", re.IGNORECASE)
 
 
 def render_deck(deck: SpiceDeck, workspace: Path) -> str:
@@ -76,7 +77,7 @@ def render_deck(deck: SpiceDeck, workspace: Path) -> str:
 
 
 def _resolve_includes(text: str, base: Path, workspace: Path) -> str:
-    _reject_control_blocks(text, base, workspace, set())
+    has_save = _inspect_includes(text, base, workspace, set())
     lines: list[str] = []
     for line in text.splitlines():
         match = INCLUDE_RE.match(line)
@@ -89,21 +90,34 @@ def _resolve_includes(text: str, base: Path, workspace: Path) -> str:
         if not resolved.is_file():
             raise FileNotFoundError(f"SPICE include does not exist: {include}")
         lines.append(f'{match.group(1)}"{resolved}"{match.group(5)}')
+    if not has_save:
+        end_index = next(
+            (
+                index
+                for index, line in enumerate(lines)
+                if re.match(r"^\s*\.end(?:\s|$)", line, re.IGNORECASE)
+            ),
+            len(lines),
+        )
+        lines.insert(end_index, ".save all")
     return "\n".join(lines) + "\n"
 
 
-def _reject_control_blocks(
+def _inspect_includes(
     text: str,
     base: Path,
     workspace: Path,
     visited: set[Path],
-) -> None:
+) -> bool:
     pending: list[tuple[str, Path]] = [(text, base)]
+    has_save = False
     while pending:
         source, source_base = pending.pop()
         for line in source.splitlines():
             if re.match(r"^\s*\.control(?:\s|$)", line, re.IGNORECASE):
                 raise ValueError("SPICE .control blocks are not supported")
+            if SAVE_RE.match(line):
+                has_save = True
             match = INCLUDE_RE.match(line)
             if match is None:
                 continue
@@ -118,6 +132,7 @@ def _reject_control_blocks(
             if resolved not in visited:
                 visited.add(resolved)
                 pending.append((resolved.read_text(encoding="utf-8"), resolved.parent))
+    return has_save
 
 
 def parse_measures(text: str, deck: SpiceDeck, returncode: int = 0) -> list[GateCheck]:

@@ -14,10 +14,10 @@
       "analyses": [".ac dec 20 10 10k"],
       "measures": [
         {
-          "name": "vout_real",
-          "statement": ".meas ac vout_real FIND v(out) AT=159.1549431",
-          "min": 0.44,
-          "max": 0.56
+          "name": "vout",
+          "statement": ".meas ac vout FIND vm(out) AT=159.1549431",
+          "min": 0.65,
+          "max": 0.76
         }
       ],
       "timeout_s": 30
@@ -74,10 +74,10 @@
         "max": 0.76
       },
       {
-        "name": "spice_filter_gain_real",
-        "spice_measure": "vout_real",
-        "min": 0.44,
-        "max": 0.56
+        "name": "spice_filter_gain",
+        "spice_measure": "vout",
+        "min": 0.62,
+        "max": 0.79
       }
     ],
     "methods": ["EVA", "RSS", "MC"],

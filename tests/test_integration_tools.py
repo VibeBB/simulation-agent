@@ -58,6 +58,54 @@ def test_real_ngspice_divider_measure(tmp_path: Path) -> None:
     assert report["checks"][0]["measured"] == pytest.approx(3.1606, abs=0.01)
 
 
+@pytest.mark.skipif(shutil.which("ngspice") is None, reason="ngspice is not installed")
+def test_real_ngspice_ac_magnitude_and_db_measures(tmp_path: Path) -> None:
+    deck = tmp_path / "rc.cir"
+    deck.write_text(
+        "RC low-pass\nV1 in 0 AC 1\nR1 in out 1k\nC1 out 0 1u\n.end\n",
+        encoding="utf-8",
+    )
+    brief_path = tmp_path / "rc.sim.json"
+    brief_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "name": "rc_ac",
+                "spice": {
+                    "deck": {
+                        "netlist_path": deck.name,
+                        "analyses": [".ac dec 20 10 10k"],
+                        "measures": [
+                            {
+                                "name": "vout",
+                                "statement": ".meas ac vout FIND vm(out) AT=159.1549431",
+                                "min": 0.65,
+                                "max": 0.76,
+                            },
+                            {
+                                "name": "vout_db",
+                                "statement": ".meas ac vout_db FIND vdb(out) AT=159.1549431",
+                                "min": -3.1,
+                                "max": -2.9,
+                            },
+                        ],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = run_simulation(
+        load_brief(brief_path), brief_path, tmp_path, tmp_path / "out" / "rc_ac", {"spice"}
+    )
+    checks = {item["id"]: item for item in report["checks"]}
+
+    assert report["verdict"] == "pass"
+    assert checks["spice.vout"]["measured"] == pytest.approx(0.7071, abs=0.002)
+    assert checks["spice.vout_db"]["measured"] == pytest.approx(-3.0103, abs=0.03)
+
+
 @pytest.mark.skipif(shutil.which("ccx") is None, reason="CalculiX is not installed")
 @pytest.mark.parametrize("element", ["C3D8I", "C3D20R"])
 def test_real_calculix_adapter_emits_report(tmp_path: Path, element: str) -> None:
