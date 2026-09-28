@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "name": "buck_regulator",
+  "description": "Buck regulator electrical, thermal, EMC, DFT, structural, and RF screening example.",
+  "imports": [
+    {
+      "path": "examples/buck-regulator/buck.connectivity.json",
+      "system": "circuit"
+    }
+  ],
+  "spice": {
+    "deck": {
+      "netlist_path": "examples/buck-regulator/buck.cir",
+      "analyses": [".ac dec 20 10 10k"],
+      "measures": [
+        {
+          "name": "vout",
+          "statement": ".meas ac vout FIND vm(out) AT=159.1549431",
+          "min": 0.65,
+          "max": 0.76
+        }
+      ],
+      "timeout_s": 30
+    }
+  },
+  "pdn": {
+    "rails": [
+      {
+        "name": "VOUT",
+        "source_v": 5.0,
+        "max_drop_v": 0.1,
+        "temperature_c": 60,
+        "source_node": "regulator",
+        "nodes": ["regulator", "load"],
+        "branches": [
+          {
+            "ref": "OUT_TRACE",
+            "from_node": "regulator",
+            "to_node": "load",
+            "kind": "trace",
+            "length_mm": 80,
+            "width_mm": 1.0,
+            "copper_oz": 1,
+            "layer": "external",
+            "allowed_rise_c": 10
+          }
+        ],
+        "loads": [{"node": "load", "current_a": "import:VOUT", "min_v": 4.8}]
+      }
+    ]
+  },
+  "thermal": {
+    "ambient_c": 40,
+    "components": [
+      {
+        "ref": "U1",
+        "power_w": 2.0,
+        "tj_max_c": 125,
+        "derating_margin_c": 10,
+        "path": {"theta_ja_c_per_w": 20}
+      }
+    ]
+  },
+  "wca": {
+    "parameters": [
+      {"name": "Rseries", "nominal": 1000, "tol_pct": 5},
+      {"name": "Cfilter", "nominal": 1e-6, "tol_pct": 5}
+    ],
+    "outputs": [
+      {
+        "name": "filter_gain",
+        "expression": "1 / sqrt(1 + (2 * pi * 159.1549431 * Rseries * Cfilter) ** 2)",
+        "min": 0.65,
+        "max": 0.76
+      },
+      {
+        "name": "spice_filter_gain",
+        "spice_measure": "vout",
+        "min": 0.62,
+        "max": 0.79
+      }
+    ],
+    "methods": ["EVA", "RSS", "MC"],
+    "mc_samples": 16,
+    "seed": 2026,
+    "spice_mc_samples": 64
+  },
+  "emc": {
+    "interfaces": [
+      {"connector_ref": "J1", "nets": ["VIN"], "esd_level": 2, "external": true}
+    ],
+    "protections": [
+      {
+        "ref": "D1",
+        "nets": ["VIN"],
+        "vrwm_v": 12,
+        "vclamp_v": 18,
+        "esd_rating_contact_kv": 8,
+        "distance_to_connector_mm": 2
+      }
+    ],
+    "protected_devices": [{"ref": "U1", "nets": ["VIN"], "abs_max_v": 20}],
+    "signals": [
+      {
+        "net": "VIN",
+        "v_max": 12,
+        "rise_time_ns": 1,
+        "length_mm": 5,
+        "er_eff": 4
+      },
+      {
+        "net": "VOUT",
+        "v_max": 5,
+        "rise_time_ns": 1,
+        "length_mm": 5,
+        "er_eff": 4
+      },
+      {
+        "net": "GND",
+        "v_max": 0,
+        "rise_time_ns": 1,
+        "length_mm": 5,
+        "er_eff": 4
+      },
+      {
+        "net": "SW",
+        "v_max": 5,
+        "rise_time_ns": 0.5,
+        "length_mm": 5,
+        "er_eff": 4,
+        "high_speed": true,
+        "reference_plane_continuous": true
+      }
+    ],
+    "decoupling": [
+      {
+        "ic_ref": "U1",
+        "power_pins": ["VIN"],
+        "capacitors": [{"ref": "C1", "distance_mm": 2}]
+      }
+    ]
+  },
+  "dft": {
+    "nets": ["VIN", "VOUT", "GND", "SW"],
+    "required": "all",
+    "test_points": [
+      {"ref": "TP1", "net": "VIN", "pad_diameter_mm": 1, "x_mm": 0, "y_mm": 0, "side": "top"},
+      {"ref": "TP2", "net": "VOUT", "pad_diameter_mm": 1, "x_mm": 3, "y_mm": 0, "side": "top"},
+      {"ref": "TP3", "net": "GND", "pad_diameter_mm": 1, "x_mm": 6, "y_mm": 0, "side": "top"},
+      {"ref": "TP4", "net": "SW", "pad_diameter_mm": 1, "x_mm": 9, "y_mm": 0, "side": "top"}
+    ],
+    "debug_header": {"kind": "swd", "ref": "J2"},
+    "bga_refs": [],
+    "boundary_scan_chain": false
+  },
+  "fem": {
+    "geometry": {
+      "kind": "cantilever_box",
+      "length_mm": 100,
+      "width_mm": 25,
+      "height_mm": 10
+    },
+    "material": {
+      "name": "Al-6061-T6",
+      "youngs_mpa": 69000,
+      "poisson": 0.33,
+      "yield_mpa": 276,
+      "density_kg_m3": 2700
+    },
+    "load": {"kind": "tip_force", "force_n": 10, "direction": "-z"},
+    "mesh": {"nx": 2, "ny": 1, "nz": 1, "element": "C3D8I"},
+    "limits": {"min_safety_factor": 2, "max_deflection_mm": 1},
+    "cross_check_tolerance": 0.15,
+    "timeout_s": 60
+  },
+  "rf": {
+    "touchstone_path": "examples/buck-regulator/filter.s2p",
+    "microstrip": [
+      {
+        "name": "50ohm",
+        "width_mm": 2.9,
+        "height_mm": 1.6,
+        "thickness_um": 35,
+        "er": 4.4,
+        "target_ohm": 50,
+        "tol_pct": 5
+      }
+    ],
+    "bands": [
+      {
+        "name": "control",
+        "f_min_hz": 900000000,
+        "f_max_hz": 1100000000,
+        "s11_max_db": -15,
+        "s21_min_db": -2
+      }
+    ]
+  }
+}

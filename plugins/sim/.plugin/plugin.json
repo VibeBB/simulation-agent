@@ -1,0 +1,12 @@
+{
+  "name": "sim",
+  "version": "0.1.0",
+  "description": "Deterministic engineering simulation gates for OpenHands",
+  "author": {
+    "name": "VibeBB",
+    "url": "https://github.com/VibeBB/simulation-agent"
+  },
+  "license": "BSD-3-Clause",
+  "repository": "https://github.com/VibeBB/simulation-agent",
+  "entry_command": "doctor"
+}

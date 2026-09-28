@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "system": "circuit",
+  "connectors": [
+    {
+      "ref": "J1",
+      "family_hint": "power",
+      "rated_current_a": 5,
+      "rated_voltage_v": 24,
+      "cavities": ["1", "2"]
+    }
+  ],
+  "nets": [
+    {"ref": "VIN", "signal_class": "power", "voltage_v": 12, "current_a": 1.5},
+    {"ref": "VOUT", "signal_class": "power", "voltage_v": 5, "current_a": 1.5},
+    {"ref": "GND", "signal_class": "ground", "voltage_v": 0, "current_a": 0},
+    {"ref": "SW", "signal_class": "highspeed", "voltage_v": 5, "current_a": 0}
+  ]
+}

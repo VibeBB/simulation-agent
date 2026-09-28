@@ -1,0 +1,12 @@
+{
+  "sim_tools": {
+    "image": "ghcr.io/vibebb/sim-tools",
+    "digest": null,
+    "tag": null
+  },
+  "sim_tools_em": {
+    "image": "ghcr.io/vibebb/sim-tools-em",
+    "digest": null,
+    "tag": null
+  }
+}
