@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import cast
 
 from mcp import types
 from mcp.server import Server
@@ -33,7 +33,7 @@ WRITING_TOOLS = {
 
 
 def tool_specs() -> list[types.Tool]:
-    schemas: dict[str, dict[str, Any]] = {
+    schemas: dict[str, dict[str, object]] = {
         "sim_doctor": {"type": "object", "properties": {}, "additionalProperties": False},
         "sim_validate_brief": {
             "type": "object",
@@ -100,46 +100,73 @@ async def list_tools() -> list[types.Tool]:
     return tool_specs()
 
 
-def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+def _string_argument(arguments: dict[str, object], name: str) -> str:
+    value = arguments.get(name)
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a string")
+    return value
+
+
+def _optional_string_argument(arguments: dict[str, object], name: str) -> str | None:
+    value = arguments.get(name)
+    if value is not None and not isinstance(value, str):
+        raise ValueError(f"{name} must be a string")
+    return value
+
+
+def _analysis_selection(arguments: dict[str, object]) -> set[str] | None:
+    value = arguments.get("only")
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("only must be an array of strings")
+    selection: set[str] = set()
+    for item in cast(list[object], value):
+        if not isinstance(item, str):
+            raise ValueError("only must be an array of strings")
+        selection.add(item)
+    return selection or None
+
+
+def dispatch_tool(name: str, arguments: dict[str, object]) -> dict[str, object]:
     root = workspace_root()
     if name == "sim_doctor":
-        return run_doctor()[0]
+        return {**run_doctor()[0]}
     if name == "sim_schema":
         return schema()
     if name == "sim_validate_brief":
-        brief = load_brief(workspace_path(arguments["brief"], root))
+        brief = load_brief(workspace_path(_string_argument(arguments, "brief"), root))
         return {"verdict": "pass", "name": brief.name, "schema_version": brief.schema_version}
     if name in {"sim_run", "sim_gates", *(f"sim_{x}" for x in ANALYSES)}:
-        brief_path = workspace_path(arguments["brief"], root)
+        brief_path = workspace_path(_string_argument(arguments, "brief"), root)
         brief = load_brief(brief_path)
         only = (
             {name.removeprefix("sim_")}
             if name.startswith("sim_") and name not in {"sim_run", "sim_gates"}
-            else set(arguments["only"])
-            if arguments.get("only")
-            else None
+            else _analysis_selection(arguments)
         )
+        out = _optional_string_argument(arguments, "out")
         out_dir = (
             workspace_path(
-                workspace_path(arguments["out"], root) / brief.name,
+                workspace_path(out, root) / brief.name,
                 root,
             )
-            if arguments.get("out")
+            if out
             else workspace_path(root / "out" / brief.name, root)
         )
-        return run_simulation(brief, brief_path, root, out_dir, only)
+        return {**run_simulation(brief, brief_path, root, out_dir, only)}
     if name == "sim_import":
-        brief = load_brief(workspace_path(arguments["brief"], root))
+        brief = load_brief(workspace_path(_string_argument(arguments, "brief"), root))
         return {
             "verdict": "pass",
             "import": write_import_record(
-                arguments["file"],
+                _string_argument(arguments, "file"),
                 root,
                 workspace_path(root / "out" / brief.name, root),
             ),
         }
     if name == "sim_respond":
-        request_path = workspace_path(arguments["request"], root)
+        request_path = workspace_path(_string_argument(arguments, "request"), root)
         request = load_request(request_path)
         try:
             brief_path = workspace_path(request.brief_path, root)
@@ -210,7 +237,7 @@ def dispatch_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 @server.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
+async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextContent]:
     try:
         payload = dispatch_tool(name, arguments)
     except (OSError, ValueError, KeyError, TypeError) as exc:

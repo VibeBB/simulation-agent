@@ -11,6 +11,8 @@ from sim.adapters.ngspice import parse_measures, render_deck, run_ngspice
 from sim.brief import FemSection, Measure, SimulationBrief, SpiceDeck, SpiceElement
 from sim.run import run_simulation
 
+REAL_CALCULIX_DAT = Path(__file__).parent / "fixtures" / "calculix-real-simulation.dat"
+
 
 def _fem() -> FemSection:
     return FemSection.model_validate(
@@ -33,22 +35,23 @@ def _fem() -> FemSection:
     )
 
 
-def test_calculix_c3d20r_mesh_and_output_parsing() -> None:
+def test_calculix_c3d20r_mesh_and_real_output_parsing() -> None:
     deck = generate_input(_fem())
     assert "*ELEMENT, TYPE=C3D20R, ELSET=EALL" in deck
     assert "*BOUNDARY\nFIXED, 1, 3, 0" in deck
     assert "U\n*EL PRINT" in deck
     assert deck.count(", 3, -1.25") == 8
+    element_lines = deck.split("*ELEMENT, TYPE=C3D20R, ELSET=EALL\n", 1)[1].split("*NSET", 1)[0]
+    assert all(len(line.split(", ")) <= 16 for line in element_lines.splitlines())
+    nall_lines = deck.split("*NSET, NSET=NALL\n", 1)[1].split("*MATERIAL", 1)[0]
+    assert all(len(line.split(", ")) <= 16 for line in nall_lines.splitlines())
 
-    displacement, stress = parse_dat(
-        "displacements (vx, vy, vz)\n"
-        "1 0.0 0.0 -0.25\n"
-        "2 0.0 0.0 0.5\n"
-        "stresses (elem, integ. point, sxx, syy, szz, sxy, syz, szx)\n"
-        "1 1 100 0 0 0 0 0\n"
+    displacement, tip_displacement, stress = parse_dat(
+        REAL_CALCULIX_DAT.read_text(encoding="utf-8")
     )
-    assert displacement == 0.5
-    assert stress == 100
+    assert displacement == pytest.approx(0.05109752)
+    assert tip_displacement is None
+    assert stress is not None and stress > 0
 
 
 def test_ngspice_missing_binary_is_unknown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -260,14 +263,9 @@ def test_calculix_adapter_runs_solver_as_subprocess(
 ) -> None:
     binary = tmp_path / "ccx-stub"
     binary.write_text(
-        "#!/bin/sh\n"
-        "cat > simulation.dat <<'EOF'\n"
-        "displacements (vx, vy, vz)\n"
-        "1 0.0 0.0 -0.25\n"
-        "2 0.0 0.0 0.5\n"
-        "stresses (elem, integ. point, sxx, syy, szz, sxy, syz, szx)\n"
-        "1 1 100 0 0 0 0 0\n"
-        "EOF\n",
+        f"#!{sys.executable}\n"
+        "import shutil\n"
+        f"shutil.copyfile({str(REAL_CALCULIX_DAT)!r}, 'simulation.dat')\n",
         encoding="utf-8",
     )
     binary.chmod(binary.stat().st_mode | 0o111)
@@ -300,6 +298,7 @@ def test_spice_wca_updates_declared_params_and_uses_unbounded_measure(
     deck_path.write_text(
         "Corner model\n"
         ".param Rtop=1k Rbottom=1k\n"
+        ".model DTEST D(IS=1e-14)\n"
         "R1 in out {Rtop}\n"
         "R2 out 0 {Rbottom}\n"
         ".op\n"
@@ -325,7 +324,8 @@ def test_spice_wca_updates_declared_params_and_uses_unbounded_measure(
           "wca": {
             "parameters": [
               {"name": "Rtop", "nominal": 1000, "tol_pct": 10},
-              {"name": "Rbottom", "nominal": 1000, "tol_pct": 10}
+              {"name": "Rbottom", "nominal": 1000, "tol_pct": 10},
+              {"name": "IS", "nominal": 1e-14, "tol_pct": 10}
             ],
             "outputs": [
               {"name": "corner_vout", "spice_measure": "vout", "min": 0.4, "max": 0.6}
@@ -357,13 +357,11 @@ def test_spice_wca_updates_declared_params_and_uses_unbounded_measure(
     )
 
     assert report["verdict"] == "unknown"
-    assert len(rendered) == 5
+    assert len(rendered) == 9
     assert all(".param Rtop=1k Rbottom=1k" not in deck for deck in rendered[1:])
+    assert all(".model DTEST D(IS=1e-14)" in deck for deck in rendered[1:])
     assert all(
-        len(line.split()) == 3
-        for deck in rendered[1:]
-        for line in deck.splitlines()
-        if line.startswith(".param ")
+        any(line.startswith(".param IS=") for line in deck.splitlines()) for deck in rendered[1:]
     )
     assert (
         next(item for item in report["checks"] if item["id"] == "wca.EVA.corner_vout")["verdict"]

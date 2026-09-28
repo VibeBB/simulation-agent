@@ -3,10 +3,20 @@
 from __future__ import annotations
 
 import math
-from dataclasses import asdict, dataclass
-from typing import Literal
+from dataclasses import dataclass
+from typing import Literal, TypedDict
 
 Verdict = Literal["pass", "fail", "unknown"]
+
+
+class GateCheckData(TypedDict):
+    id: str
+    analysis: str
+    verdict: Verdict
+    detail: str
+    measured: float | None
+    limit: str | None
+    evidence: list[str]
 
 
 @dataclass(frozen=True)
@@ -19,10 +29,16 @@ class GateCheck:
     limit: str | None = None
     evidence: list[str] | None = None
 
-    def to_dict(self) -> dict[str, object]:
-        value = asdict(self)
-        value["evidence"] = self.evidence or []
-        return value
+    def to_dict(self) -> GateCheckData:
+        return {
+            "id": self.id,
+            "analysis": self.analysis,
+            "verdict": self.verdict,
+            "detail": self.detail,
+            "measured": self.measured,
+            "limit": self.limit,
+            "evidence": self.evidence or [],
+        }
 
 
 @dataclass(frozen=True)

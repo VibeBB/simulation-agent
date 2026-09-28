@@ -7,9 +7,24 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 TOOL_TIMEOUT_S = 10
+
+
+class ToolInfo(TypedDict):
+    available: bool
+    version: str | None
+
+
+class DetailedToolInfo(ToolInfo, total=False):
+    path: str | None
+    detail: str | None
+    python: str
+    runner: str
+
+
+ToolInventory = dict[str, DetailedToolInfo]
 
 
 def _version(binary: str, args: list[str]) -> tuple[bool, str | None, str | None]:
@@ -31,13 +46,14 @@ def _version(binary: str, args: list[str]) -> tuple[bool, str | None, str | None
     return result.returncode == 0, path, first
 
 
-def discover_tools() -> dict[str, Any]:
+def discover_tools() -> ToolInventory:
     ngspice = os.environ.get("SIM_NGSPICE", "ngspice")
     ccx = os.environ.get("SIM_CCX", "ccx")
     ng_ok, ng_path, ng_version = _version(ngspice, ["--version"])
     if not ng_ok:
         ng_ok, ng_path, ng_version = _version(ngspice, ["-v"])
     cc_ok, cc_path, cc_version = _version(ccx, ["-v"])
+    cc_ok = cc_ok or bool(cc_version and re.match(r"This is Version \d", cc_version))
     openems_python = os.environ.get("SIM_OPENEMS_PYTHON", "python3")
     openems_ok, openems_path, openems_version = _version("openEMS", ["--help"])
     if not openems_ok:

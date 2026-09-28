@@ -1,9 +1,9 @@
-ARG DEBIAN_IMAGE=debian:13-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+ARG BASE_IMAGE=ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
 ARG UV_VERSION=0.12.19
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
-FROM ${DEBIAN_IMAGE} AS sim-tools
+FROM ${BASE_IMAGE} AS sim-tools
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG IMAGE_REVISION=unknown
@@ -48,7 +48,7 @@ WORKDIR /workspace
 USER sim
 ENTRYPOINT ["python", "-m", "sim"]
 
-FROM ${DEBIAN_IMAGE} AS openems-build
+FROM ${BASE_IMAGE} AS openems-build
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG OPENEMS_COMMIT=92b82520054a62201ac69bd905fdf2533810367f
@@ -61,6 +61,7 @@ RUN apt-get -o Acquire::Retries=5 update \
         ca-certificates \
         cmake \
         git \
+        libcgal-dev \
         libboost-all-dev \
         libfftw3-dev \
         libhdf5-dev \
@@ -86,6 +87,26 @@ RUN git clone https://github.com/thliebig/openEMS-Project.git /tmp/openEMS-Proje
     && cmake --build /tmp/openEMS-Project/build --parallel 2 \
     && cmake --install /tmp/openEMS-Project/build
 
+RUN apt-get -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
+        cython3 \
+        python3-pip \
+        python3-setuptools \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN CSXCAD_INSTALL_PATH=/usr/local \
+    OPENEMS_INSTALL_PATH=/usr/local \
+    CSXCAD_NOSCM=1 \
+    OPENEMS_NOSCM=1 \
+    python3 -m pip install --break-system-packages --no-build-isolation --no-deps \
+        /tmp/openEMS-Project/CSXCAD/python \
+    && CSXCAD_INSTALL_PATH=/usr/local \
+        OPENEMS_INSTALL_PATH=/usr/local \
+        CSXCAD_NOSCM=1 \
+        OPENEMS_NOSCM=1 \
+        python3 -m pip install --break-system-packages --no-build-isolation --no-deps \
+            /tmp/openEMS-Project/openEMS/python
+
 FROM sim-tools AS sim-tools-em
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -98,9 +119,10 @@ RUN apt-get -o Acquire::Retries=5 update \
         git \
         libboost-filesystem1.83.0 \
         libboost-program-options1.83.0 \
-        libfftw3-3 \
-        libhdf5-310 \
-        libopenmpi40 \
+        libboost-thread1.83.0 \
+        libfftw3-double3 \
+        libhdf5-103-1t64 \
+        libopenmpi3t64 \
         libreadline8t64 \
         libtinyxml2.6.2v5 \
         libvtk9.1t64 \
@@ -119,10 +141,10 @@ RUN git init /opt/kicad-rfsim \
     && git -C /opt/kicad-rfsim checkout --detach FETCH_HEAD
 
 ENV SIM_REQUIRED_TOOLS=ngspice,ccx,openems,kicad_rfsim \
-    SIM_OPENEMS_PYTHON=python3 \
+    SIM_OPENEMS_PYTHON=/usr/bin/python3 \
     SIM_RFSIM_RUNNER=/opt/kicad-rfsim/plugins/runner.py
 
-RUN python3 -c "import CSXCAD, openEMS, numpy, h5py" \
+RUN /usr/bin/python3 -c "import CSXCAD, openEMS, numpy, h5py" \
     && python -m sim doctor --strict
 
 USER sim

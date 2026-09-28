@@ -1,7 +1,7 @@
 ---
 name: sim-liaison
 description: Respond to sibling circuit, mechanical, wire, and bard agents using simulation request/response JSON contracts.
-model: vibebb-fast
+model: vibebb-author
 tools:
   - terminal
   - file_editor

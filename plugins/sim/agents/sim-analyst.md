@@ -1,7 +1,7 @@
 ---
 name: sim-analyst
 description: Orchestrate evidence-based simulation brief authoring, deterministic gates, and report interpretation.
-model: vibebb-fast
+model: vibebb-author
 tools:
   - terminal
   - file_editor

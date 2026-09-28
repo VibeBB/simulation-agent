@@ -10,7 +10,7 @@ import random
 import re
 import subprocess
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 from . import __version__
 from .adapters.calculix import run_calculix
@@ -23,10 +23,17 @@ from .analysis import (
     run_thermal,
     run_wca,
 )
-from .brief import EmcInterface, EmcSignal, PdnBranch, PdnLoad, SimulationBrief, WcaParameter
+from .brief import (
+    EmcSignal,
+    PdnBranch,
+    PdnLoad,
+    SimulationBrief,
+    WcaParameter,
+    WcaSection,
+)
 from .gates import GateCheck, check
 from .imports import import_source
-from .report import write_outputs
+from .report import SimulationReport, write_outputs
 from .tools import discover_tools
 from .touchstone import TouchstoneData
 from .touchstone import parse as parse_touchstone
@@ -215,7 +222,7 @@ def run_simulation(
     workspace: Path,
     out_dir: Path,
     only: set[str] | None = None,
-) -> dict[str, Any]:
+) -> SimulationReport:
     known = {"spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf"}
     if only is not None and not only <= known:
         raise ValueError(f"unknown analysis in --only: {', '.join(sorted(only - known))}")
@@ -227,7 +234,7 @@ def run_simulation(
     tools = discover_tools()
     tools["simulation-agent"] = {"available": True, "version": __version__}
     checks: list[GateCheck] = []
-    adapter_files: dict[str, Any] = {}
+    adapter_files: dict[str, object] = {}
     imports: list[dict[str, object]] = []
     for imported in brief.imports:
         try:
@@ -350,54 +357,27 @@ def run_simulation(
         imported_emc_nets = _keyed_import_records(imports, "circuit", "nets", "ref")
         interfaces = list(emc.interfaces)
         declared_connectors = {item.connector_ref for item in interfaces}
-        derived_interfaces: list[EmcInterface] = []
         for connector in _import_records(imports, "circuit", "connectors"):
             connector_ref = connector.get("ref")
-            if not isinstance(connector_ref, str):
-                continue
-            if connector_ref not in declared_connectors:
-                if imported_emc_nets:
-                    derived_interfaces.append(
-                        EmcInterface(
-                            connector_ref=connector_ref,
-                            nets=sorted(imported_emc_nets),
-                            external=True,
-                        )
-                    )
-                else:
-                    checks.append(
-                        check(
-                            f"emc.interface.{connector_ref}",
-                            "emc",
-                            "unknown",
-                            "connectivity import has no nets to associate with external connector",
-                        )
-                    )
-        interfaces.extend(derived_interfaces)
-        signals = list(emc.signals)
-        declared_signals = {item.net for item in signals}
-        for net_ref, net in imported_emc_nets.items():
-            if net_ref in declared_signals:
-                continue
-            voltage = _number(net.get("voltage_v"))
-            if voltage is None:
+            if isinstance(connector_ref, str) and connector_ref not in declared_connectors:
                 checks.append(
                     check(
-                        f"emc.signal.{net_ref}",
+                        f"emc.interface.{connector_ref}",
                         "emc",
                         "unknown",
-                        "connectivity import has no valid net voltage",
+                        "declare the nets of this external connector",
                     )
                 )
-                continue
-            signals.append(
-                EmcSignal(
-                    net=net_ref,
-                    v_max=voltage,
-                    high_speed=net.get("signal_class") == "highspeed",
-                )
-            )
-        emc = emc.model_copy(update={"interfaces": interfaces, "signals": signals})
+        declared_interface_nets = {net for item in interfaces for net in item.nets}
+        signals: list[EmcSignal] = []
+        for signal in emc.signals:
+            if signal.v_max is None and signal.net in declared_interface_nets:
+                imported_net = imported_emc_nets.get(signal.net)
+                voltage = _number(imported_net.get("voltage_v")) if imported_net else None
+                if voltage is not None:
+                    signal = signal.model_copy(update={"v_max": voltage})
+            signals.append(signal)
+        emc = emc.model_copy(update={"signals": signals})
         checks.extend(run_emc(emc))
     if "dft" in selected and brief.dft is not None:
         dft = brief.dft
@@ -510,8 +490,6 @@ def run_simulation(
 
 
 def _run_spice_wca(brief: SimulationBrief, workspace: Path, out_dir: Path) -> list[GateCheck]:
-    from .brief import WcaSection
-
     assert brief.spice is not None and brief.wca is not None
     section: WcaSection = brief.wca
     outputs = [output for output in section.outputs if output.spice_measure is not None]
@@ -582,6 +560,8 @@ def _run_spice_wca(brief: SimulationBrief, workspace: Path, out_dir: Path) -> li
                     lines = rendered.splitlines()
                     remaining = dict(corner)
                     for line_index in range(len(lines)):
+                        if not re.match(r"^\s*\.param\b", lines[line_index], re.IGNORECASE):
+                            continue
                         for key, value in corner.items():
                             pattern = re.compile(
                                 rf"(?i)(?<![A-Za-z0-9_]){re.escape(key)}\s*=\s*(?:\{{[^}}]*\}}|[^\s]+)"

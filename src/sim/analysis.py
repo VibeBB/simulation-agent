@@ -487,6 +487,11 @@ def run_emc(section: EmcSection) -> list[GateCheck]:
                     "high-speed signal lacks a continuous reference plane",
                 )
             )
+        has_timing_data = (
+            signal.length_mm is not None or signal.rise_time_ns is not None or signal.high_speed
+        )
+        if not has_timing_data:
+            continue
         if signal.length_mm is None or signal.rise_time_ns is None or signal.er_eff is None:
             results.append(
                 check(
