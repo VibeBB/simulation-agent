@@ -40,7 +40,18 @@ def test_discover_tools_extracts_ngspice_version_banner(
             return subprocess.CompletedProcess(
                 command,
                 0,
-                stdout="******\n** ngspice-36 : Circuit level simulator",
+                stdout=(
+                    "******\n"
+                    "** ngspice-45.2 : Circuit level simulation program\n"
+                    "** Compiled with KLU Direct Linear Solver\n"
+                    "** The U. C. Berkeley CAD Group\n"
+                    "** Copyright 1985-1994, Regents of the University of California.\n"
+                    "** Copyright 2001-2025, The ngspice team.\n"
+                    "** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n"
+                    "** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n"
+                    "** Creation Date: Fri Sep 12 11:58:13 UTC 2025\n"
+                    "******\n"
+                ),
                 stderr="",
             )
         return subprocess.CompletedProcess(command, 1, stdout="", stderr="")
@@ -53,5 +64,5 @@ def test_discover_tools_extracts_ngspice_version_banner(
     tools = discover_tools()
 
     assert tools["ngspice"]["available"] is True
-    assert tools["ngspice"]["version"] == "36"
-    assert tools["ngspice"].get("detail") == "** ngspice-36 : Circuit level simulator"
+    assert tools["ngspice"]["version"] == "45.2"
+    assert tools["ngspice"].get("detail") == "** ngspice-45.2 : Circuit level simulation program"

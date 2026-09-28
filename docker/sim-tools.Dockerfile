@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
 ARG UV_VERSION=0.12.19
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
@@ -117,16 +117,11 @@ USER root
 RUN apt-get -o Acquire::Retries=5 update \
     && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
         git \
-        libboost-filesystem1.83.0 \
-        libboost-program-options1.83.0 \
-        libboost-thread1.83.0 \
-        libfftw3-double3 \
-        libhdf5-103-1t64 \
-        libopenmpi3t64 \
-        libreadline8t64 \
+        libboost-program-options1.90.0 \
+        libboost-thread1.90.0 \
+        libhdf5-310 \
         libtinyxml2.6.2v5 \
-        libvtk9.1t64 \
-        libxml2 \
+        libvtk9.5 \
         python3-numpy \
         python3-h5py \
     && rm -rf /var/lib/apt/lists/*
