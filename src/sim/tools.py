@@ -25,6 +25,7 @@ class DetailedToolInfo(ToolInfo, total=False):
 
 
 ToolInventory = dict[str, DetailedToolInfo]
+NGSPICE_VERSION_RE = re.compile(r"ngspice-(\S+)", re.IGNORECASE)
 
 
 def _version(binary: str, args: list[str]) -> tuple[bool, str | None, str | None]:
@@ -42,7 +43,11 @@ def _version(binary: str, args: list[str]) -> tuple[bool, str | None, str | None
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, path, str(exc)
     output = (result.stdout + "\n" + result.stderr).strip()
-    first = output.splitlines()[0] if output else f"exit {result.returncode}"
+    lines = output.splitlines()
+    first = next(
+        (line.strip() for line in lines if NGSPICE_VERSION_RE.search(line)),
+        lines[0] if lines else f"exit {result.returncode}",
+    )
     return result.returncode == 0, path, first
 
 
@@ -82,7 +87,7 @@ def discover_tools() -> ToolInventory:
         "ngspice": {
             "available": ng_ok,
             "path": ng_path,
-            "version": _extract_version(ng_version),
+            "version": _extract_ngspice_version(ng_version),
             "detail": ng_version,
         },
         "ccx": {
@@ -110,3 +115,10 @@ def _extract_version(value: str | None) -> str | None:
         return None
     match = re.search(r"\d+(?:\.\d+)+", value)
     return match.group(0) if match else value
+
+
+def _extract_ngspice_version(value: str | None) -> str | None:
+    if value is None:
+        return None
+    match = NGSPICE_VERSION_RE.search(value)
+    return match.group(1) if match else None
