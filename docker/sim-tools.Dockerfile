@@ -1,0 +1,128 @@
+ARG DEBIAN_IMAGE=debian:13-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+ARG UV_VERSION=0.12.19
+
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+
+FROM ${DEBIAN_IMAGE} AS sim-tools
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG IMAGE_REVISION=unknown
+
+ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
+    UV_PYTHON_INSTALL_DIR=/opt/uv-python \
+    PATH=/opt/simulation-agent/.venv/bin:/opt/uv-python/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    PYTHONPYCACHEPREFIX=/tmp/sim-pycache \
+    SIM_REQUIRED_TOOLS=ngspice,ccx
+
+LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agent" \
+      org.opencontainers.image.licenses="BSD-3-Clause" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      sim.uv.version="0.12.19"
+
+COPY --from=uv /uv /uvx /usr/local/bin/
+
+RUN apt-get -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
+        ca-certificates \
+        calculix-ccx \
+        ngspice \
+        python3 \
+        python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/simulation-agent
+COPY pyproject.toml uv.lock README.md LICENSE /opt/simulation-agent/
+COPY src /opt/simulation-agent/src
+COPY plugins/sim /opt/simulation-agent/plugins/sim
+COPY examples /opt/simulation-agent/examples
+
+RUN uv python install 3.12 \
+    && uv sync --frozen --no-dev --no-group sdk-check --python 3.12 \
+    && SIM_REQUIRED_TOOLS=ngspice,ccx python -m sim doctor --strict
+
+RUN if ! getent group sim >/dev/null; then groupadd --system sim; fi \
+    && useradd --system --uid 10001 --gid sim --create-home --shell /usr/sbin/nologin sim \
+    && chown -R sim:sim /opt/simulation-agent
+
+WORKDIR /workspace
+USER sim
+ENTRYPOINT ["python", "-m", "sim"]
+
+FROM ${DEBIAN_IMAGE} AS openems-build
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG OPENEMS_COMMIT=92b82520054a62201ac69bd905fdf2533810367f
+
+ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
+
+RUN apt-get -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
+        build-essential \
+        ca-certificates \
+        cmake \
+        git \
+        libboost-all-dev \
+        libfftw3-dev \
+        libhdf5-dev \
+        libopenmpi-dev \
+        libreadline-dev \
+        libtinyxml-dev \
+        libvtk9-dev \
+        libxml2-dev \
+        python3-dev \
+        python3-numpy \
+        python3-h5py \
+        swig \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/thliebig/openEMS-Project.git /tmp/openEMS-Project \
+    && git -C /tmp/openEMS-Project checkout --detach "${OPENEMS_COMMIT}" \
+    && git -C /tmp/openEMS-Project submodule update --init --recursive \
+    && cmake -S /tmp/openEMS-Project -B /tmp/openEMS-Project/build \
+        -DBUILD_APPCSXCAD=NO \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DWITH_MPI=OFF \
+    && cmake --build /tmp/openEMS-Project/build --parallel 2 \
+    && cmake --install /tmp/openEMS-Project/build
+
+FROM sim-tools AS sim-tools-em
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG KICAD_RFSIM_COMMIT=efa0ea9bd34b13f7819c6f2d4c02e78d34b116c3
+
+USER root
+
+RUN apt-get -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
+        git \
+        libboost-filesystem1.83.0 \
+        libboost-program-options1.83.0 \
+        libfftw3-3 \
+        libhdf5-310 \
+        libopenmpi40 \
+        libreadline8t64 \
+        libtinyxml2.6.2v5 \
+        libvtk9.1t64 \
+        libxml2 \
+        python3-numpy \
+        python3-h5py \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=openems-build /usr/local /usr/local
+
+RUN ldconfig
+
+RUN git init /opt/kicad-rfsim \
+    && git -C /opt/kicad-rfsim remote add origin https://github.com/NBalciunas/kicad-rfsim.git \
+    && git -C /opt/kicad-rfsim fetch --depth=1 origin "${KICAD_RFSIM_COMMIT}" \
+    && git -C /opt/kicad-rfsim checkout --detach FETCH_HEAD
+
+ENV SIM_REQUIRED_TOOLS=ngspice,ccx,openems,kicad_rfsim \
+    SIM_OPENEMS_PYTHON=python3 \
+    SIM_RFSIM_RUNNER=/opt/kicad-rfsim/plugins/runner.py
+
+RUN python3 -c "import CSXCAD, openEMS, numpy, h5py" \
+    && python -m sim doctor --strict
+
+USER sim
