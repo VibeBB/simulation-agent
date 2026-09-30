@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -12,6 +13,40 @@ from scripts.update_image_digest_lock import update_lock
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "docker" / "image-digests.json"
+PLUGIN_LOCK = ROOT / "plugins" / "sim" / "tools-image.json"
+NULL_LOCK = {
+    "sim_tools": {
+        "image": "ghcr.io/vibebb/sim-tools",
+        "digest": None,
+        "tag": None,
+    },
+    "sim_tools_em": {
+        "image": "ghcr.io/vibebb/sim-tools-em",
+        "digest": None,
+        "tag": None,
+    },
+}
+
+
+def test_sim_tools_lock_entry_has_valid_shape() -> None:
+    entries = json.loads(LOCK.read_text(encoding="utf-8"))
+    assert "sim_tools" in entries
+    lock_entry = entries["sim_tools"]
+    assert lock_entry["image"] == "ghcr.io/vibebb/sim-tools"
+    if lock_entry["digest"] is None:
+        assert lock_entry["tag"] is None
+    else:
+        assert isinstance(lock_entry["digest"], str)
+        assert re.fullmatch(r"sha256:[0-9a-f]{64}", lock_entry["digest"])
+        assert isinstance(lock_entry["tag"], str) and lock_entry["tag"]
+
+    if PLUGIN_LOCK.exists():
+        plugin_entry = json.loads(PLUGIN_LOCK.read_text(encoding="utf-8"))
+        assert {key: plugin_entry[key] for key in ("image", "digest", "tag")} == {
+            key: lock_entry[key] for key in ("image", "digest", "tag")
+        }
+    else:
+        assert lock_entry["digest"] is None and lock_entry["tag"] is None
 
 
 def test_print_locked_image_requires_a_digest(tmp_path: Path) -> None:
@@ -28,13 +63,15 @@ def test_print_locked_image_requires_a_digest(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     assert locked_image(lock, "sim_tools") == f"ghcr.io/vibebb/sim-tools@sha256:{'a' * 64}"
+    null_lock = tmp_path / "null-lock.json"
+    null_lock.write_text(json.dumps(NULL_LOCK), encoding="utf-8")
     with pytest.raises(ValueError, match="not digest-pinned"):
-        locked_image(LOCK, "sim_tools")
+        locked_image(null_lock, "sim_tools")
 
 
 def test_update_preserves_reserved_openems_entry(tmp_path: Path) -> None:
     lock = tmp_path / "image-digests.json"
-    lock.write_text(LOCK.read_text(encoding="utf-8"), encoding="utf-8")
+    lock.write_text(json.dumps(NULL_LOCK), encoding="utf-8")
     changed = update_lock(
         lock,
         entry="sim_tools",
