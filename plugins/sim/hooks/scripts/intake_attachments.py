@@ -23,7 +23,7 @@ import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -75,14 +75,14 @@ def _image_blocks(value: Any) -> list[dict[str, Any]]:
     """Collect image content blocks from a serialized event (any nesting)."""
     blocks: list[dict[str, Any]] = []
     if isinstance(value, dict):
-        record = value
+        record = cast(dict[str, Any], value)
         if record.get("type") == "image" and isinstance(record.get("image_urls"), list):
             blocks.append(record)
         else:
-            for child in record.values():
+            for child in cast(dict[str, Any], value).values():
                 blocks.extend(_image_blocks(child))
     elif isinstance(value, list):
-        for child in value:
+        for child in cast(list[Any], value):
             blocks.extend(_image_blocks(child))
     return blocks
 
@@ -111,10 +111,13 @@ def _scan_event_file(path: Path) -> list[dict[str, Any]]:
         value: Any = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return []
-    if not isinstance(value, dict) or value.get("source") != "user":
+    if not isinstance(value, dict):
+        return []
+    record = cast(dict[str, Any], value)
+    if record.get("source") != "user":
         return []
     urls: list[str] = []
-    for block in _image_blocks(value):
+    for block in _image_blocks(record):
         for url in block["image_urls"]:
             if isinstance(url, str):
                 urls.append(url)
@@ -126,11 +129,15 @@ def _load_manifest(manifest: Path) -> set[str]:
     try:
         for line in manifest.read_text(encoding="utf-8").splitlines():
             try:
-                record = json.loads(line)
+                value: Any = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if isinstance(record, dict) and isinstance(record.get("sha256"), str):
-                seen.add(record["sha256"])
+            if not isinstance(value, dict):
+                continue
+            record = cast(dict[str, Any], value)
+            digest = record.get("sha256")
+            if isinstance(digest, str):
+                seen.add(digest)
     except OSError:
         pass
     return seen
@@ -143,6 +150,7 @@ def main() -> int:
         payload = {}
     if not isinstance(payload, dict):
         payload = {}
+    payload = cast(dict[str, Any], payload)
     events_dir = _events_dir(payload)
     if events_dir is None:
         return 0

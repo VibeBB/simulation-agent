@@ -14,6 +14,7 @@ dev = [
     "packaging>=26",
     "pyright>=1.1.414",
     "pytest>=9",
+    "pytest-cov==7.1.0",
     "pytest-xdist>=3",
     "ruff>=0.16",
 ]
@@ -41,7 +42,13 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
-include = ["src", "scripts", "tests"]
+include = [
+    "src",
+    "scripts",
+    "tests",
+    "plugins/sim/hooks/scripts",
+    "plugins/sim/scripts",
+]
 exclude = ["**/__pycache__", ".venv"]
 
 [tool.pytest.ini_options]
@@ -49,3 +56,10 @@ testpaths = ["tests"]
 addopts = "-q -n auto --dist loadgroup"
 pythonpath = ["."]
 markers = ["tools: requires ngspice and CalculiX executables"]
+
+[tool.coverage.run]
+source = ["src/sim"]
+branch = false
+
+[tool.coverage.report]
+fail_under = 77

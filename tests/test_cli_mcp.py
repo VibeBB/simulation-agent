@@ -1,12 +1,30 @@
 from __future__ import annotations
 
+import asyncio
 import json
+from collections.abc import Coroutine
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
+from mcp import types
 
-from sim import cli
+from sim import cli, mcp_server
 from sim.mcp_server import dispatch_tool, tool_specs
+
+
+def _call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
+    call = cast(
+        Coroutine[Any, Any, types.CallToolResult],
+        mcp_server.call_tool(name, arguments),
+    )
+    return asyncio.run(call)
+
+
+def _mcp_payload(result: types.CallToolResult) -> dict[str, Any]:
+    content = result.content[0]
+    assert isinstance(content, types.TextContent)
+    return cast(dict[str, Any], json.loads(content.text))
 
 
 def test_cli_run_emits_json_report_and_unknown_exit_code(
@@ -115,3 +133,41 @@ def test_mcp_writing_tools_are_not_annotated_read_only() -> None:
     assert doctor_annotations is not None
     assert pdn_annotations.readOnlyHint is False
     assert doctor_annotations.readOnlyHint is True
+
+
+def test_mcp_unknown_tool_is_transport_error() -> None:
+    result = _call_tool("sim_unknown", {})
+
+    assert result.isError is True
+    content = result.content[0]
+    assert isinstance(content, types.TextContent)
+    assert content.text == json.dumps(
+        {"verdict": "fail", "detail": "unknown tool 'sim_unknown'"},
+        indent=2,
+        sort_keys=True,
+    )
+
+
+def test_mcp_dispatch_exception_is_transport_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_dispatch(_name: str, _arguments: dict[str, object]) -> dict[str, object]:
+        raise ValueError("dispatch failed")
+
+    monkeypatch.setattr(mcp_server, "dispatch_tool", fail_dispatch)
+    result = _call_tool("sim_schema", {})
+
+    assert result.isError is True
+    assert _mcp_payload(result) == {"verdict": "fail", "detail": "dispatch failed"}
+
+
+@pytest.mark.parametrize("verdict", ["fail", "unknown"])
+def test_mcp_gate_verdicts_are_not_transport_errors(
+    monkeypatch: pytest.MonkeyPatch, verdict: str
+) -> None:
+    def gate_result(_name: str, _arguments: dict[str, object]) -> dict[str, object]:
+        return {"verdict": verdict, "checks": []}
+
+    monkeypatch.setattr(mcp_server, "dispatch_tool", gate_result)
+    result = _call_tool("sim_gates", {})
+
+    assert result.isError is False
+    assert _mcp_payload(result)["verdict"] == verdict

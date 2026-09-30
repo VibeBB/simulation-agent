@@ -5,3 +5,4 @@ __pycache__/
 .pyright/
 out/
 *.py[cod]
+.coverage*

@@ -16,6 +16,12 @@ sources of truth.
 - Inter-agent exchange is through validated JSON files in the shared workspace.
   Never import a sibling Python package.
 - Keep paths inside the workspace; never log or commit secrets.
+- Shared hooks are canonical across the family; change all 9 copies together
+  and update `EXPECTED` in `scripts/check_shared_hooks.py`. `_provenance.py`
+  is shared where present; UX and Production Engineering intentionally omit it.
+  `intake_attachments.py`, `protect_generated.py`,
+  `record_image_observation.py`, `record_vision_tool_event.py`, and
+  `report_sim_status.py` are intentionally repo-specific.
 - `out/` files and `*.sim-response.json` files are generated artifacts and
   cannot be edited directly. Fix inputs and regenerate them.
 - Copyleft solvers run as unmodified separate processes. Never link solver
@@ -52,6 +58,10 @@ uv run python scripts/verify_all.py --stage standard
 uv run python scripts/check_plugin_load.py
 actionlint
 ```
+
+Fast verification runs pytest with
+`--cov --cov-report=term-missing:skip-covered`; coverage measures `src/sim`
+without branch coverage and enforces a 77% minimum.
 
 Real-solver tests use the `tools` marker and skip only when the required
 executable is absent. CI installs ngspice and CalculiX and therefore runs them.

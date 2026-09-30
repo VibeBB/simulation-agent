@@ -137,4 +137,48 @@ def test_safety_rail_denies_destructive_git_commands() -> None:
     )
 
     assert result.returncode == 2
-    assert "git reset --hard is denied" in result.stderr
+    assert "git reset --hard is banned by the working agreement" in result.stderr
+
+
+def test_safety_rail_denies_canonical_denylist() -> None:
+    for command in (
+        "rm -rf /",
+        "rm -fr ~",
+        "dd if=x of=/dev/sda",
+        "mkfs.ext4 /dev/sda1",
+        "shutdown now",
+        "git push origin main",
+        "git push --force origin feat",
+        "git reset --hard",
+        "git clean -fd",
+        "git checkout -- src/sim/gates.py",
+        "git stash drop",
+        "git add .",
+        "git add -A",
+        "git add --all",
+        "git commit --amend",
+        "git commit --no-verify",
+    ):
+        result = _hook(
+            "plugins/sim/hooks/scripts/safety_rail.py",
+            {"tool_name": "terminal", "tool_input": {"command": command}},
+        )
+        assert result.returncode == 2, command
+
+
+def test_safety_rail_allows_canonical_safe_commands() -> None:
+    for command in (
+        "rm -rf out/artifacts",
+        "git push --force-with-lease origin feat",
+        "git push origin feat",
+        "git add src/sim/gates.py docs",
+        "git commit -m message",
+        "python -m sim gates",
+        "echo hi > out.txt",
+        "find . -name '*.svg'",
+    ):
+        result = _hook(
+            "plugins/sim/hooks/scripts/safety_rail.py",
+            {"tool_name": "terminal", "tool_input": {"command": command}},
+        )
+        assert result.returncode == 0, command
