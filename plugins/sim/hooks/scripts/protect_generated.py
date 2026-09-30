@@ -46,6 +46,16 @@ def _is_vision_artifact(path: Path) -> bool:
     ) or path.parts == ("intake", "attachments", "manifest.jsonl")
 
 
+PATCH_PATH_PREFIXES = (
+    "*** Update File:",
+    "*** Add File:",
+    "*** Delete File:",
+    "*** Move to:",
+    "+++ b/",
+    "--- a/",
+)
+
+
 def _file_editor_target(payload: dict[str, Any], root: Path) -> bool:
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, dict):
@@ -57,11 +67,14 @@ def _file_editor_target(payload: dict[str, Any], root: Path) -> bool:
                 return True
         patch = tool_input.get("patch")
         if isinstance(patch, str):
-            return any(
-                _is_protected(line.removeprefix("+++ b/").removeprefix("--- a/"), root)
-                for line in patch.splitlines()
-                if line.startswith(("+++ b/", "--- a/"))
-            )
+            for line in patch.splitlines():
+                line = line.strip()
+                for prefix in PATCH_PATH_PREFIXES:
+                    if line.startswith(prefix):
+                        path = line.removeprefix(prefix).split("\t", 1)[0].strip()
+                        if _is_protected(path, root):
+                            return True
+                        break
         return False
     if payload.get("tool_name") != "terminal":
         return False

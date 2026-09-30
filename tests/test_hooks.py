@@ -87,6 +87,28 @@ def test_vision_artifacts_are_protected_from_patch_and_terminal(tmp_path: Path) 
     assert terminal.returncode == 2
 
 
+def test_apply_patch_openhands_header_targets_vision_artifacts(tmp_path: Path) -> None:
+    blocked = _hook(
+        "plugins/sim/hooks/scripts/protect_generated.py",
+        {
+            "working_dir": str(tmp_path),
+            "tool_name": "apply_patch",
+            "tool_input": {"patch": "*** Update File: observations/sim/image-observations.jsonl\n"},
+        },
+    )
+    allowed = _hook(
+        "plugins/sim/hooks/scripts/protect_generated.py",
+        {
+            "working_dir": str(tmp_path),
+            "tool_name": "apply_patch",
+            "tool_input": {"patch": "*** Update File: briefs/x.sim.json\n"},
+        },
+    )
+
+    assert blocked.returncode == 2
+    assert allowed.returncode == 0
+
+
 def test_plugin_and_agent_vision_hooks_are_declared() -> None:
     plugin_root = ROOT / "plugins" / "sim"
     hooks = json.loads((plugin_root / "hooks" / "hooks.json").read_text(encoding="utf-8"))
