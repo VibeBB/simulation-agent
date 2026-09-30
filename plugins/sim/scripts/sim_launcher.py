@@ -9,6 +9,7 @@ import pwd
 import shutil
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 MODULES = {"mcp_server": "sim.mcp_server"}
 CONTAINER_SRC = "/plugin-src"
@@ -77,8 +78,12 @@ def _image_ref(plugin_root: Path) -> str | None:
             value = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
+        value = cast(dict[str, Any], value)
         entry = value.get("sim_tools") if path.name == "image-digests.json" else value
-        if not isinstance(entry, dict) or not isinstance(entry.get("image"), str):
+        if not isinstance(entry, dict):
+            continue
+        entry = cast(dict[str, Any], entry)
+        if not isinstance(entry.get("image"), str):
             continue
         if entry.get("digest"):
             return f"{entry['image']}@{entry['digest']}"

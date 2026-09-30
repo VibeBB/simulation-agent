@@ -11,7 +11,8 @@ FAST_COMMANDS = [
     ["uv", "run", "ruff", "check", "."],
     ["uv", "run", "ruff", "format", "--check", "."],
     ["uv", "run", "pyright"],
-    ["uv", "run", "pytest"],
+    ["uv", "run", "pytest", "--cov", "--cov-report=term-missing:skip-covered"],
+    ["uv", "run", "python", "scripts/check_shared_hooks.py"],
     ["uv", "run", "python", "scripts/verify_docs.py"],
     ["git", "diff", "--check", "HEAD^"],
 ]

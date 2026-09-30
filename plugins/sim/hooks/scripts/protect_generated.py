@@ -8,7 +8,7 @@ import os
 import shlex
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 WRITE_COMMANDS = {"tee", "rm", "mv", "cp", "install", "truncate"}
 
@@ -32,7 +32,7 @@ def _is_protected(value: str, root: Path) -> bool:
     except (OSError, ValueError):
         return False
     return (
-        (relative.parts and relative.parts[0] == "out")
+        bool(relative.parts and relative.parts[0] == "out")
         or relative.name.endswith(".sim-response.json")
         or _is_vision_artifact(relative)
     )
@@ -60,6 +60,7 @@ def _file_editor_target(payload: dict[str, Any], root: Path) -> bool:
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, dict):
         return False
+    tool_input = cast(dict[str, Any], tool_input)
     if payload.get("tool_name") in {"file_editor", "apply_patch"}:
         for key in ("path", "file_path", "filename", "target"):
             value = tool_input.get(key)
@@ -101,6 +102,7 @@ def main() -> int:
         return 2
     if not isinstance(payload, dict):
         return 2
+    payload = cast(dict[str, Any], payload)
     event_root = (
         payload.get("working_dir") or os.environ.get("OPENHANDS_PROJECT_DIR") or os.getcwd()
     )

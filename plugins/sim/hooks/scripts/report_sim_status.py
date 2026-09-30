@@ -7,22 +7,27 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def main() -> int:
     try:
         payload: Any = json.load(sys.stdin)
+        payload = cast(dict[str, Any], payload)
         root = Path(str(payload.get("working_dir") or os.getcwd())).resolve()
         reports = sorted(path for path in root.glob("out/**/sim-report.json") if path.is_file())
-        entries = []
+        entries: list[str] = []
         for path in reports:
-            report = json.loads(path.read_text(encoding="utf-8"))
-            failed = [
-                check.get("id")
-                for check in report.get("checks", [])
-                if check.get("verdict") in ("fail", "unknown")
-            ]
+            report = cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
+            checks = cast(list[dict[str, Any]], report.get("checks", []))
+            failed = cast(
+                list[str],
+                [
+                    check.get("id")
+                    for check in checks
+                    if check.get("verdict") in ("fail", "unknown")
+                ],
+            )
             entries.append(
                 f"{path}: verdict={report.get('verdict')}; unresolved={', '.join(failed) or 'none'}"
             )

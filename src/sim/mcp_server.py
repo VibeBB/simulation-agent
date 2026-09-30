@@ -237,12 +237,22 @@ def dispatch_tool(name: str, arguments: dict[str, object]) -> dict[str, object]:
 
 
 @server.call_tool()
-async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextContent]:
+async def call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
+    is_error = False
     try:
         payload = dispatch_tool(name, arguments)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         payload = {"verdict": "fail", "detail": str(exc)}
-    return [types.TextContent(type="text", text=json.dumps(payload, indent=2, sort_keys=True))]
+        is_error = True
+    return types.CallToolResult(
+        content=[
+            types.TextContent(
+                type="text",
+                text=json.dumps(payload, indent=2, sort_keys=True),
+            )
+        ],
+        isError=is_error,
+    )
 
 
 async def _serve() -> None:
