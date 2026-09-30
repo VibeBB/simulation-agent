@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
-ARG UV_VERSION=0.12.19
+ARG UV_VERSION=0.12.21
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
@@ -17,7 +17,7 @@ ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
 LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agent" \
       org.opencontainers.image.licenses="BSD-3-Clause" \
       org.opencontainers.image.revision="${IMAGE_REVISION}" \
-      sim.uv.version="0.12.19"
+      sim.uv.version="0.12.21"
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 

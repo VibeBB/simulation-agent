@@ -65,7 +65,7 @@ package is imported.
 
 ## Development
 
-Python 3.12+, uv `0.12.19`, and Docker are used by the repository workflow:
+Python 3.12+, uv `0.12.21`, and Docker are used by the repository workflow:
 
 ```bash
 uv sync --locked

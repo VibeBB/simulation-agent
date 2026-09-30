@@ -7,7 +7,7 @@ sources of truth.
 
 ## Invariants
 
-- Python 3.12+, package `src/sim/`, uv `0.12.19`, hatchling, Pydantic v2, and
+- Python 3.12+, package `src/sim/`, uv `0.12.21`, hatchling, Pydantic v2, and
   MCP. Runtime dependencies are limited to `pydantic>=2` and `mcp>=1.29,<2`.
 - All contracts are frozen and reject extra fields. Missing facts, tools,
   outputs, parse results, or acceptance bounds remain `unknown`.
