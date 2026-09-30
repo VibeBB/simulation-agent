@@ -17,7 +17,7 @@ Build the base image and run the example smoke:
 
 ```bash
 docker build --target sim-tools -f docker/sim-tools.Dockerfile -t sim-tools:local .
-python scripts/smoke_image.py --image sim-tools:local
+uv run python scripts/smoke_image.py --image sim-tools:local
 ```
 
 The smoke script retains its stopped containers and prints their names.
@@ -36,3 +36,15 @@ Python `3.12.14` environment.
 
 `image-digests.json` reserves entries for published image references. Local
 build tags are not published digests and must not be recorded as such.
+
+The `Publish sim images` workflow builds and publishes only `sim-tools`. Its
+digest lock is generated after the published image passes the smoke check;
+`plugins/sim/tools-image.json` and the `sim_tools` lock entry are written by
+that workflow. `sim_tools_em` remains reserved with a null digest because its
+optional image requires the separate openEMS/CSXCAD source build and is not
+published by this workflow.
+
+`scripts/measure_image_tools.py` records the commands and versions for Python,
+uv, ngspice, CalculiX, and the installed `sim` package in the digest lock.
+The repository launcher reads the plugin pin first and then the repository
+lock. Do not copy a local image digest into either generated file.

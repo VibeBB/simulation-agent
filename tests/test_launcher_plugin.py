@@ -20,6 +20,53 @@ def test_launcher_resolves_repo_source() -> None:
     assert launcher.resolve_source(ROOT / "plugins" / "sim") == ROOT / "src"
 
 
+def test_plugin_image_pin_precedes_repository_lock(tmp_path: Path) -> None:
+    plugin_root = tmp_path / "plugins" / "sim"
+    plugin_root.mkdir(parents=True)
+    plugin_pin = "sha256:" + "a" * 64
+    (plugin_root / "tools-image.json").write_text(
+        json.dumps({"image": "ghcr.io/vibebb/sim-tools", "digest": plugin_pin}),
+        encoding="utf-8",
+    )
+    assert launcher._image_ref(plugin_root) == f"ghcr.io/vibebb/sim-tools@{plugin_pin}"
+
+
+def test_null_plugin_pin_falls_back_to_sim_tools_lock(tmp_path: Path) -> None:
+    plugin_root = tmp_path / "plugins" / "sim"
+    plugin_root.mkdir(parents=True)
+    (plugin_root / "tools-image.json").write_text(
+        json.dumps(
+            {
+                "image": "ghcr.io/vibebb/sim-tools",
+                "digest": None,
+                "tag": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+    lock_path = tmp_path / "docker" / "image-digests.json"
+    lock_path.parent.mkdir()
+    locked_digest = "sha256:" + "b" * 64
+    lock_path.write_text(
+        json.dumps(
+            {
+                "sim_tools": {
+                    "image": "ghcr.io/vibebb/sim-tools",
+                    "digest": locked_digest,
+                    "tag": "abc-tools",
+                },
+                "sim_tools_em": {
+                    "image": "ghcr.io/vibebb/sim-tools-em",
+                    "digest": None,
+                    "tag": None,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert launcher._image_ref(plugin_root) == f"ghcr.io/vibebb/sim-tools@{locked_digest}"
+
+
 def test_docker_launcher_forwards_only_approved_environment(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
