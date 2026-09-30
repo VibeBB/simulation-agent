@@ -25,13 +25,25 @@ def _is_protected(value: str, root: Path) -> bool:
         return True
     if lexical.name.endswith(".sim-response.json"):
         return True
+    if _is_vision_artifact(lexical):
+        return True
     try:
         relative = candidate.resolve().relative_to(root.resolve())
     except (OSError, ValueError):
         return False
-    return (relative.parts and relative.parts[0] == "out") or relative.name.endswith(
-        ".sim-response.json"
+    return (
+        (relative.parts and relative.parts[0] == "out")
+        or relative.name.endswith(".sim-response.json")
+        or _is_vision_artifact(relative)
     )
+
+
+def _is_vision_artifact(path: Path) -> bool:
+    return (
+        len(path.parts) >= 3
+        and path.parts[:2] == ("observations", "sim")
+        and path.suffix == ".jsonl"
+    ) or path.parts == ("intake", "attachments", "manifest.jsonl")
 
 
 def _file_editor_target(payload: dict[str, Any], root: Path) -> bool:
@@ -43,6 +55,13 @@ def _file_editor_target(payload: dict[str, Any], root: Path) -> bool:
             value = tool_input.get(key)
             if isinstance(value, str) and _is_protected(value, root):
                 return True
+        patch = tool_input.get("patch")
+        if isinstance(patch, str):
+            return any(
+                _is_protected(line.removeprefix("+++ b/").removeprefix("--- a/"), root)
+                for line in patch.splitlines()
+                if line.startswith(("+++ b/", "--- a/"))
+            )
         return False
     if payload.get("tool_name") != "terminal":
         return False

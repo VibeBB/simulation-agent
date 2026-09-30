@@ -48,6 +48,63 @@ def test_generated_output_symlink_is_protected(tmp_path: Path) -> None:
     assert result.returncode == 2
 
 
+def test_vision_artifacts_are_protected(tmp_path: Path) -> None:
+    for path in (
+        "observations/sim/image-observations.jsonl",
+        "observations/sim/vision-tool-events.jsonl",
+        "intake/attachments/manifest.jsonl",
+    ):
+        result = _hook(
+            "plugins/sim/hooks/scripts/protect_generated.py",
+            {
+                "working_dir": str(tmp_path),
+                "tool_name": "file_editor",
+                "tool_input": {"command": "write", "path": path},
+            },
+        )
+        assert result.returncode == 2, path
+
+
+def test_vision_artifacts_are_protected_from_patch_and_terminal(tmp_path: Path) -> None:
+    patch = _hook(
+        "plugins/sim/hooks/scripts/protect_generated.py",
+        {
+            "working_dir": str(tmp_path),
+            "tool_name": "apply_patch",
+            "tool_input": {"patch": "+++ b/observations/sim/image-observations.jsonl\n"},
+        },
+    )
+    terminal = _hook(
+        "plugins/sim/hooks/scripts/protect_generated.py",
+        {
+            "working_dir": str(tmp_path),
+            "tool_name": "terminal",
+            "tool_input": {"command": "echo x > intake/attachments/manifest.jsonl"},
+        },
+    )
+
+    assert patch.returncode == 2
+    assert terminal.returncode == 2
+
+
+def test_plugin_and_agent_vision_hooks_are_declared() -> None:
+    plugin_root = ROOT / "plugins" / "sim"
+    hooks = json.loads((plugin_root / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    expected = {
+        "session_start": {"sim-doctor", "intake-attachments", "ensure-llm-profiles"},
+        "user_prompt_submit": {"intake-attachments"},
+        "stop": {"sim-report-status", "intake-attachments"},
+        "post_tool_use": {"record-image-observation", "record-vision-tool-event"},
+    }
+    for event, names in expected.items():
+        actual = {hook["name"] for group in hooks[event] for hook in group["hooks"]}
+        assert actual == names
+    for name in ("sim-analyst", "sim-liaison", "sim-review"):
+        text = (plugin_root / "agents" / f"{name}.md").read_text(encoding="utf-8")
+        assert "name: record-image-observation" in text
+        assert "name: record-vision-tool-event" in text
+
+
 def test_safety_rail_denies_destructive_git_commands() -> None:
     result = _hook(
         "plugins/sim/hooks/scripts/safety_rail.py",

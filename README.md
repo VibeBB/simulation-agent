@@ -19,6 +19,14 @@ The plugin provides `/sim:doctor`, `/sim:run`, `/sim:spice`, `/sim:pdn`,
 `/sim:thermal`, `/sim:wca`, `/sim:emc`, `/sim:dft`, `/sim:fem`, `/sim:rf`,
 `/sim:gates`, `/sim:import`, and `/sim:respond`.
 
+## Hooks
+
+Session start runs `sim-doctor`, `intake-attachments`, and
+`ensure-llm-profiles`. Attachment intake also runs on user prompts and
+session stop. `inspect_image_with_vision` responses and `file_editor` image
+views are recorded by post-tool hooks under `observations/sim/`; these records
+are advisory evidence and never affect deterministic verdicts.
+
 The JSON CLI is also available as `python -m sim`:
 
 ```bash

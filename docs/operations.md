@@ -88,6 +88,27 @@ The optional openEMS build is intentionally attempted only after the base
 image passes. If it exceeds 60 minutes or fails for a non-trivial reason, stop
 and report the exact error rather than applying an unreviewed workaround.
 
+## User images and vision
+
+The `intake-attachments` hook scans conversation events at session start,
+before each user prompt, and when the session stops. User-attached images are
+materialized under `intake/attachments/`; `manifest.jsonl` records their
+source event, image digest, and materialization status. If the event store is
+not available to the runtime, users can place images in that directory
+directly and provide their paths.
+
+`ensure-llm-profiles` provisions missing `vibebb-author` and `vibebb-review`
+profiles from the active profile without overwriting existing profiles. Its
+vision status is advisory: disabled or unsupported models are distinguished
+from profiles the optional SDK probe cannot verify.
+
+Post-tool hooks append image views and successful `inspect_image_with_vision`
+responses to `observations/sim/image-observations.jsonl` and
+`observations/sim/vision-tool-events.jsonl`. The logs and attachment manifest
+are generated evidence and cannot be edited directly. Image observations are
+L2 advisory data only; they never supply measured values or change a
+deterministic verdict. See [ADR-0004](adr/0004-vision-and-profile-hooks.md).
+
 ## Outputs and evidence
 
 Reports are generated in `out/<name>/`; never edit them directly. `manifest.json`

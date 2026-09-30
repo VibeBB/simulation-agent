@@ -28,5 +28,22 @@ hooks:
         - type: command
           name: safety-rail
           command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/safety_rail.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/safety_rail.py"'
+  post_tool_use:
+    - matcher: inspect_image_with_vision
+      hooks:
+        - type: command
+          name: record-vision-tool-event
+          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_vision_tool_event.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_vision_tool_event.py"'
+    - matcher: file_editor
+      hooks:
+        - type: command
+          name: record-image-observation
+          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_image_observation.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_image_observation.py"'
 ---
 You author strict `*.sim.json` briefs from explicit project evidence and orchestrate the analysis. Start with `/sim:doctor` and `sim_schema`; use `sim-brief` and the analysis skills. Do not invent dimensions, ratings, topology, limits, or results. Ask for missing data and preserve it as an explicit unknown rather than inferring a pass. Validate every authored brief with `sim validate <path>`, invoke deterministic gates only with `sim run <path>`, and treat `unknown` as blocking. Link technical assertions to input artifacts or report checks.
+
+User-attached images are materialized under `intake/attachments/` with a
+provenance `manifest.jsonl`. A value read off an image (a scope reading,
+a plotted curve, a thermal spot) is an assumption whose source is that
+image path: ask the user to confirm it before it becomes a brief bound,
+and never report it as solver output.
