@@ -1,0 +1,15 @@
+{
+  "digest": "sha256:d3908a09b22d7ac2a4c3119911f0e3ab75de5509e2ded840d258baebd939744b",
+  "dockerfile": "docker/sim-tools.Dockerfile",
+  "image": "ghcr.io/vibebb/sim-tools",
+  "published_at": "2026-09-30T19:28:47Z",
+  "tag": "b6b3907f385c8d7718294f278691f9caf0613e2b-tools",
+  "tools": {
+    "ccx": "dpkg-query -W -f='${Version}\\n' calculix-ccx: 2.21-1build1",
+    "ngspice": "ngspice --version: ** ngspice-45.2 : Circuit level simulation program",
+    "python": "python --version: Python 3.12.14",
+    "sim": "python -c 'import sim; print(sim.__version__)': 0.1.0",
+    "uv": "uv --version: 0.12.21 (x86_64-unknown-linux-musl)"
+  },
+  "workflow_run": "https://github.com/VibeBB/simulation-agent/actions/runs/36765795848"
+}
