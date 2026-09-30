@@ -14,8 +14,8 @@ that produced a report.
 Publish `sim-tools` to GHCR with a commit-specific tag and `latest` alias. Run
 the smoke checks against the pushed image, record its measured tools and
 sha256 digest in `docker/image-digests.json`, and copy the same entry to
-`plugins/sim/tools-image.json`. The launcher continues to use its existing
-`auto`/`docker`/`host` selection rules.
+`plugins/sim/tools-image.json`. The launcher retains its `auto`/`docker`/`host`
+modes; see ADR-0006 for the Docker-only default.
 
 The optional `sim-tools-em` image remains a reserved null-digest entry. Its
 openEMS and CSXCAD components are source-built and are not published by this

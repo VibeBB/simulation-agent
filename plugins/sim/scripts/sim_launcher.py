@@ -142,16 +142,25 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     plugin_root = Path(__file__).resolve().parents[1]
     source = resolve_source(plugin_root)
-    mode = os.environ.get("SIM_LAUNCH_MODE", "auto")
+    mode = os.environ.get("SIM_LAUNCH_MODE", "docker")
     if mode not in {"auto", "docker", "host"}:
-        print(f"SIM_LAUNCH_MODE must be auto, docker, or host (got {mode!r})", file=sys.stderr)
+        print(
+            f"SIM_LAUNCH_MODE must be auto, docker, or host (got {mode!r}); "
+            "usage: SIM_LAUNCH_MODE=auto|docker|host",
+            file=sys.stderr,
+        )
         return 2
     docker = shutil.which("docker")
     image = _image_ref(plugin_root)
     use_docker = mode == "docker" or (mode == "auto" and docker is not None and image is not None)
     if use_docker:
         if docker is None or image is None:
-            message = "Docker mode requires docker and a resolvable SIM_TOOLS_IMAGE"
+            missing: list[str] = []
+            if docker is None:
+                missing.append("docker is not on PATH")
+            if image is None:
+                missing.append("no image resolved from SIM_TOOLS_IMAGE or the sim image lock")
+            message = f"{'; '.join(missing)}. Set SIM_LAUNCH_MODE=host to run on the host."
             if "--warn" in args:
                 print(json.dumps({"verdict": "unknown", "warning": message}))
                 return 0
