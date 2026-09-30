@@ -36,9 +36,15 @@ EXPECTED_COMMANDS = {
     "respond",
 }
 EXPECTED_HOOKS = {
-    "session_start": {"sim-doctor"},
+    "session_start": {
+        "sim-doctor",
+        "intake-attachments",
+        "ensure-llm-profiles",
+    },
+    "user_prompt_submit": {"intake-attachments"},
     "pre_tool_use": {"protect-generated", "safety-rail"},
-    "stop": {"sim-report-status"},
+    "stop": {"sim-report-status", "intake-attachments"},
+    "post_tool_use": {"record-image-observation", "record-vision-tool-event"},
 }
 
 
@@ -107,7 +113,10 @@ def main() -> int:
     if failures:
         print("\n".join(failures), file=sys.stderr)
         return 1
-    print("plugin-load OK: 3 agents, 13 commands, 10 skills, session-start/pre-tool-use/stop hooks")
+    print(
+        "plugin-load OK: 3 agents, 13 commands, 10 skills, "
+        "session-start/user-prompt-submit/pre-tool-use/stop/post-tool-use hooks"
+    )
     return 0
 
 

@@ -12,7 +12,7 @@ touch this plugin), **deferred** (useful, blocked; revisit trigger given).
 
 | Upstream change | Decision | Notes for simulation-agent |
 | --- | --- | --- |
-| #5345 keep conversations alive when MCP startup fails | inherent | A missing tools image / Docker now degrades to "plugin MCP tools absent" instead of killing the conversation. The doctor hook already reports the cause; agents must not improvise results when `sim_*` tools are missing. |
+| #5345 keep conversations alive when MCP startup fails | inherent | If the `sim` MCP server fails to start, the conversation continues without `sim_*` tools instead of ending. `sim_doctor` / the doctor hook report the cause; agents must not improvise results when `sim_*` tools are missing. |
 | #5309 surface LiteLLM budget denials without retry backoff | inherent | Sub-agent `max_budget_per_run` caps and proxy budget denials now end the run immediately instead of retrying. |
 | #5222 refresh-on-401 hook on managed-proxy LLMs (agent-server) | inherent | No agent-server image is built by this repo. |
 | #5270 manage optional backend processes for Canvas apps (agent-server) | n/a | The plugin ships no Canvas extension/app backend. |
