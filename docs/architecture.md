@@ -19,8 +19,9 @@ The OpenHands `sim` plugin contains three agents, 13 commands, and 10
 engineering skills. Agents gather explicit evidence, author briefs, and
 interpret generated reports; they do not compute or author verdicts. Plugin
 hooks protect generated files and summarize unresolved checks. The launcher
-selects a locked Docker image when configured and otherwise supports host mode.
-The low-level MCP server and JSON CLI call the same core entry points.
+defaults to a locked Docker image; host execution requires an explicit mode,
+while `auto` preserves Docker-when-available behavior. The low-level MCP
+server and JSON CLI call the same core entry points.
 
 ## L3 — telemetry and reports
 

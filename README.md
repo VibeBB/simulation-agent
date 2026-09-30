@@ -8,10 +8,11 @@ sibling packages.
 ## Install
 
 Install the `sim` plugin in OpenHands and make Docker available for the locked
-solver image. The launcher uses Docker when an image reference resolves, or a
-host Python environment when `SIM_LAUNCH_MODE=host` (or when automatic Docker
-resolution is unavailable). Set `SIM_TOOLS_IMAGE` to select a tools image.
-Run `/sim:doctor` to inspect solver availability.
+solver image. The launcher defaults to Docker and requires Docker plus a
+resolvable tools image; set `SIM_TOOLS_IMAGE` to select one. Set
+`SIM_LAUNCH_MODE=host` to run with the host Python environment, or `auto` to
+retain Docker-when-available behavior. Run `/sim:doctor` to inspect solver
+availability.
 
 ## Commands
 
@@ -86,5 +87,7 @@ uv run python scripts/smoke_image.py --image sim-tools:local
 ```
 
 See [operations](docs/operations.md), [architecture](docs/architecture.md),
-the [ADRs](docs/adr/), and [Docker notes](docker/README.md) for implementation
-and deployment boundaries.
+the [ADRs](docs/adr/), including
+[ADR-0006: Docker-only launcher default](docs/adr/0006-docker-only-launcher-default.md),
+and [Docker notes](docker/README.md) for implementation and deployment
+boundaries.

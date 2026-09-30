@@ -5,10 +5,11 @@
 The CLI workspace is `OPENHANDS_PROJECT_DIR`, falling back to the current
 directory. Relative input and output paths must resolve within that workspace.
 Paths that traverse symlinks are rejected.
-The plugin launcher accepts `SIM_LAUNCH_MODE=auto|docker|host` (default `auto`)
-and `SIM_TOOLS_IMAGE`. Auto mode uses Docker only when Docker and an image
-reference are available; host mode runs the package from the resolved source
-tree and reports missing solver tools as `unknown`.
+The plugin launcher accepts `SIM_LAUNCH_MODE=docker|host|auto` (default
+`docker`) and `SIM_TOOLS_IMAGE`. Docker mode requires Docker and a resolvable
+image; if either is unavailable, set `SIM_LAUNCH_MODE=host` to run from the
+resolved source tree. Host mode reports missing solver tools as `unknown`.
+Auto mode retains Docker-when-available behavior and otherwise uses the host.
 
 | Variable | Purpose |
 | --- | --- |
