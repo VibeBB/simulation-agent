@@ -17,7 +17,7 @@ dev = [
     "pytest-xdist>=3",
     "ruff>=0.16",
 ]
-sdk-check = ["openhands-sdk==1.49.6", "openhands-tools==1.49.6"]
+sdk-check = ["openhands-sdk==1.50.0", "openhands-tools==1.50.0"]
 
 [build-system]
 requires = ["hatchling"]
@@ -27,7 +27,7 @@ build-backend = "hatchling.build"
 packages = ["src/sim"]
 
 [tool.uv]
-required-version = "==0.12.19"
+required-version = "==0.12.21"
 default-groups = ["dev", "sdk-check"]
 
 [tool.ruff]
