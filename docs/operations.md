@@ -1,5 +1,12 @@
 # Operations
 
+## SBOM attestations
+
+`publish-sim-images.yml` generates and attests an SPDX-2.3 SBOM for the
+published tools digest and uploads it for 30 days. The returned URL is stored
+as `sbom_attestation`; `locked-image-check.yml` verifies it when present and
+warns while continuing when it is absent.
+
 ## Runtime configuration
 
 The CLI workspace is `OPENHANDS_PROJECT_DIR`, falling back to the current
@@ -123,3 +130,18 @@ Reports are generated in `out/<name>/`; never edit them directly. `manifest.json
 hashes generated files, and `provenance.json` records the brief hash, import
 hashes, tool versions, and a UTC timestamp. Keep authored inputs and generated
 outputs distinct.
+
+## Launcher-side verification
+
+`SIM_VERIFY_ATTESTATION` accepts `auto` (the default), `require`, or `off`.
+Before pulling a lock-provided image, and on every `prewarm`, the launcher
+uses `gh attestation verify` with the lock entry and publisher workflow.
+`auto` prints one note and skips for an image override, missing attestation,
+missing `gh`, or failed `gh auth status`; once verification starts, failure
+or timeout prevents the pull. `require` makes skip conditions errors, while
+`off` never verifies. Ordinary invocations do not re-verify a locally
+present image, and `--warn` doctor paths never verify.
+
+## CI runner network auditing
+
+CI and image-publishing jobs use `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.

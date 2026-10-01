@@ -5,6 +5,7 @@ import json
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import TypedDict
 
 import pytest
 
@@ -14,6 +15,13 @@ SPEC = importlib.util.spec_from_file_location("sim_launcher", LAUNCHER_PATH)
 assert SPEC is not None and SPEC.loader is not None
 launcher = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(launcher)
+
+
+class TestImagePin(TypedDict):
+    ref: str
+    image: str | None
+    digest: str | None
+    attestation: str | None
 
 
 def _docker_path(_name: str) -> str:
@@ -28,8 +36,17 @@ def _no_image(_root: Path) -> None:
     return None
 
 
-def _test_image(_root: Path) -> str:
-    return "sim-tools:test"
+def _test_image_pin(_root: Path) -> TestImagePin:
+    return {
+        "ref": "sim-tools:test",
+        "image": None,
+        "digest": None,
+        "attestation": None,
+    }
+
+
+def _ensure_test_image(pin: TestImagePin, **_kwargs: bool) -> str:
+    return pin["ref"]
 
 
 def _clear_launch_environment(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -54,7 +71,7 @@ def test_default_docker_without_image_fails_closed(
 ) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setattr(launcher.shutil, "which", _docker_path)
-    monkeypatch.setattr(launcher, "_image_ref", _no_image)
+    monkeypatch.setattr(launcher, "_image_pin", _no_image)
     calls = _capture_exec(monkeypatch)
 
     assert launcher.main(["doctor"]) == 1
@@ -69,7 +86,7 @@ def test_default_docker_without_binary_fails_closed(
 ) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setattr(launcher.shutil, "which", _no_docker)
-    monkeypatch.setattr(launcher, "_image_ref", _test_image)
+    monkeypatch.setattr(launcher, "_image_pin", _test_image_pin)
     calls = _capture_exec(monkeypatch)
 
     assert launcher.main(["doctor"]) == 1
@@ -84,7 +101,7 @@ def test_default_docker_warn_emits_unknown_json(
 ) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setattr(launcher.shutil, "which", _no_docker)
-    monkeypatch.setattr(launcher, "_image_ref", _no_image)
+    monkeypatch.setattr(launcher, "_image_pin", _no_image)
     calls = _capture_exec(monkeypatch)
 
     assert launcher.main(["doctor", "--warn"]) == 0
@@ -100,7 +117,7 @@ def test_host_mode_runs_on_host_when_image_exists(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("SIM_LAUNCH_MODE", "host")
     monkeypatch.setenv("SIM_TOOLS_IMAGE", "sim-tools:test")
     monkeypatch.setattr(launcher.shutil, "which", _docker_path)
-    monkeypatch.setattr(launcher, "_image_ref", _test_image)
+    monkeypatch.setattr(launcher, "_image_pin", _test_image_pin)
     calls = _capture_exec(monkeypatch)
 
     assert launcher.main(["doctor"]) == 0
@@ -112,7 +129,7 @@ def test_auto_mode_without_image_falls_back_to_host(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("SIM_LAUNCH_MODE", "auto")
     monkeypatch.delenv("SIM_TOOLS_IMAGE", raising=False)
     monkeypatch.setattr(launcher.shutil, "which", _docker_path)
-    monkeypatch.setattr(launcher, "_image_ref", _no_image)
+    monkeypatch.setattr(launcher, "_image_pin", _no_image)
     calls = _capture_exec(monkeypatch)
 
     assert launcher.main(["doctor"]) == 0
@@ -134,7 +151,8 @@ def test_invalid_mode_exits_two_with_usage(
 def test_default_docker_runs_image_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setattr(launcher.shutil, "which", _docker_path)
-    monkeypatch.setattr(launcher, "_image_ref", _test_image)
+    monkeypatch.setattr(launcher, "_image_pin", _test_image_pin)
+    monkeypatch.setattr(launcher, "_ensure_image", _ensure_test_image)
     calls = _capture_exec(monkeypatch)
 
     assert launcher.main(["doctor"]) == 0
