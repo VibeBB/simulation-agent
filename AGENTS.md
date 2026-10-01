@@ -71,3 +71,5 @@ executable is absent. CI installs ngspice and CalculiX and therefore runs them.
 Use focused commits with `feat(scope): summary` (72 characters maximum). Do
 not amend, force-push, use `git add .`, skip hooks, or run destructive cleanup
 commands. Keep the first research inventory unchanged.
+
+Shared workflows are canonical across the family; change all 11 copies together and update `EXPECTED` in `scripts/check_shared_workflows.py`.

@@ -13,6 +13,7 @@ FAST_COMMANDS = [
     ["uv", "run", "pyright"],
     ["uv", "run", "pytest", "--cov", "--cov-report=term-missing:skip-covered"],
     ["uv", "run", "python", "scripts/check_shared_hooks.py"],
+    ["uv", "run", "python", "scripts/check_shared_workflows.py"],
     ["uv", "run", "python", "scripts/verify_docs.py"],
     ["git", "diff", "--check", "HEAD^"],
 ]
