@@ -123,3 +123,8 @@ Reports are generated in `out/<name>/`; never edit them directly. `manifest.json
 hashes generated files, and `provenance.json` records the brief hash, import
 hashes, tool versions, and a UTC timestamp. Keep authored inputs and generated
 outputs distinct.
+
+
+## SDK 1.50.1 feature evaluation
+
+See [simulation-agent SDK v1.50.1 feature evaluation](research/sdk-v1.50.1-feature-evaluation.md).
