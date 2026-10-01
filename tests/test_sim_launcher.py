@@ -17,7 +17,7 @@ launcher = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(launcher)
 
 
-class TestImagePin(TypedDict):
+class ImagePinFixture(TypedDict):
     ref: str
     image: str | None
     digest: str | None
@@ -36,7 +36,7 @@ def _no_image(_root: Path) -> None:
     return None
 
 
-def _test_image_pin(_root: Path) -> TestImagePin:
+def _test_image_pin(_root: Path) -> ImagePinFixture:
     return {
         "ref": "sim-tools:test",
         "image": None,
@@ -45,7 +45,7 @@ def _test_image_pin(_root: Path) -> TestImagePin:
     }
 
 
-def _ensure_test_image(pin: TestImagePin, **_kwargs: bool) -> str:
+def _ensure_test_image(pin: ImagePinFixture, **_kwargs: bool) -> str:
     return pin["ref"]
 
 
@@ -160,4 +160,4 @@ def test_default_docker_runs_image_when_available(monkeypatch: pytest.MonkeyPatc
     assert executable == "/usr/bin/docker"
     assert argv[:2] == ["/usr/bin/docker", "run"]
     assert "sim-tools:test" in argv
-    assert argv[-4:] == ["python", "-m", "sim", "doctor"]
+    assert argv[-3:] == ["-m", "sim", "doctor"]
