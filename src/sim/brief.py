@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -414,6 +414,7 @@ class EmcSection(Model):
 
 
 class TestPoint(Model):
+    __test__: ClassVar[bool] = False
     ref: str = Field(min_length=1)
     net: str = Field(min_length=1)
     pad_diameter_mm: float = Field(gt=0)

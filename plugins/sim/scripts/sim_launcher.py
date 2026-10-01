@@ -274,6 +274,8 @@ def _docker_argv(docker: str, image: str, source: Path | None, argv: list[str]) 
         "HOME=/tmp",
         "-e",
         "TMPDIR=/tmp",
+        "--entrypoint",
+        "python",
         image,
         *argv,
     ]
@@ -365,10 +367,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"sim_launcher: {exc}", file=sys.stderr)
             return 1
         inner = (
-            ["python", "-m", MODULES[args[0]], *args[1:]]
+            ["-m", MODULES[args[0]], *args[1:]]
             if args[0] in MODULES
             else [
-                "python",
                 "-m",
                 "sim",
                 *args,
