@@ -82,15 +82,36 @@ def test_update_preserves_reserved_openems_entry(tmp_path: Path) -> None:
         workflow_run="https://github.com/VibeBB/simulation-agent/actions/runs/1",
         dockerfile="docker/sim-tools.Dockerfile",
         tools={"python": "3.12", "ngspice": "45"},
+        attestation="https://github.com/VibeBB/simulation-agent/attestations/1",
     )
     assert changed
     data = json.loads(lock.read_text(encoding="utf-8"))
     assert data["sim_tools"]["digest"] == "sha256:" + "b" * 64
+    assert data["sim_tools"]["attestation"] == (
+        "https://github.com/VibeBB/simulation-agent/attestations/1"
+    )
     assert data["sim_tools_em"] == {
         "image": "ghcr.io/vibebb/sim-tools-em",
         "digest": None,
         "tag": None,
     }
+
+
+def test_update_rejects_invalid_attestation_url(tmp_path: Path) -> None:
+    lock = tmp_path / "image-digests.json"
+    with pytest.raises(ValueError, match="attestation"):
+        update_lock(
+            lock,
+            entry="sim_tools",
+            image="ghcr.io/vibebb/sim-tools",
+            tag="abc123-tools",
+            digest="sha256:" + "b" * 64,
+            published_at="2026-09-30T00:00:00Z",
+            workflow_run="https://github.com/VibeBB/simulation-agent/actions/runs/1",
+            dockerfile="docker/sim-tools.Dockerfile",
+            tools={"python": "3.12"},
+            attestation="http://invalid.example/attestation",
+        )
 
 
 def test_pull_locked_image_uses_the_digest_ref(
@@ -103,6 +124,7 @@ def test_pull_locked_image_uses_the_digest_ref(
                 "sim_tools": {
                     "image": "ghcr.io/vibebb/sim-tools",
                     "digest": "sha256:" + "c" * 64,
+                    "attestation": "https://github.com/VibeBB/simulation-agent/attestations/1",
                 }
             }
         ),

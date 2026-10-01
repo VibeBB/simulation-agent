@@ -24,6 +24,13 @@ Auto mode retains Docker-when-available behavior and otherwise uses the host.
 a required tool is missing. `--warn` is used by the OpenHands session-start
 hook so an unavailable optional image does not block a session.
 
+The `Publish sim images` workflow attests the published `sim-tools` image and
+stores the attestation URL with its root and plugin digest locks.
+`Locked image check` validates the lock and verifies available provenance
+before pulling the image; legacy entries without attestation metadata warn
+and continue. A verification failure fails the check. See
+[ADR-0007](adr/ADR-0007-attest-published-tools-images.md).
+
 ## Docker images
 
 `sim-tools` is based on Ubuntu 26.04.1 LTS (Resolute), pinned by the

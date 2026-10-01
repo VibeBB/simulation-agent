@@ -10,6 +10,10 @@ The `OPENEMS_COMMIT` and `KICAD_RFSIM_COMMIT` Docker ARGs are compared with
 their upstream default branch heads. The `sim-tools-em` source build is
 optional and remains separate from the published `sim-tools` image.
 
+The scheduled workflow writes reports to the runner's temporary directory,
+adds the run URL to the Markdown summary, and leaves the report issue open
+while any dependency lookup is unknown.
+
 Deferrals belong in `scripts/dependency_update_deferrals.json`. Each entry is
 scoped to a surface, dependency, exact latest value, reason, and review date.
 Remove or renew a deferral after review; expired deferrals do not suppress

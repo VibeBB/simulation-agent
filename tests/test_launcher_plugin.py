@@ -25,7 +25,13 @@ def test_plugin_image_pin_precedes_repository_lock(tmp_path: Path) -> None:
     plugin_root.mkdir(parents=True)
     plugin_pin = "sha256:" + "a" * 64
     (plugin_root / "tools-image.json").write_text(
-        json.dumps({"image": "ghcr.io/vibebb/sim-tools", "digest": plugin_pin}),
+        json.dumps(
+            {
+                "image": "ghcr.io/vibebb/sim-tools",
+                "digest": plugin_pin,
+                "attestation": "https://github.com/VibeBB/simulation-agent/attestations/1",
+            }
+        ),
         encoding="utf-8",
     )
     assert launcher._image_ref(plugin_root) == f"ghcr.io/vibebb/sim-tools@{plugin_pin}"
