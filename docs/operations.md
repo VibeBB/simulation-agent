@@ -1,10 +1,11 @@
+# Operations
+
 ## SBOM attestations
 
 `publish-sim-images.yml` generates and attests an SPDX-2.3 SBOM for the
 published tools digest and uploads it for 30 days. The returned URL is stored
 as `sbom_attestation`; `locked-image-check.yml` verifies it when present and
 warns while continuing when it is absent.
-# Operations
 
 ## Runtime configuration
 

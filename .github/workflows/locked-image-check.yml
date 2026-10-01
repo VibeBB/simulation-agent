@@ -177,7 +177,7 @@ jobs:
         run: |
           set -euo pipefail
           launcher=plugins/sim/scripts/sim_launcher.py
-          out=.round2-smoke/sim
+          out=.launcher-smoke/sim
           mkdir -p "$out"
           if python3 - <<'PY'
           import json
@@ -223,6 +223,6 @@ jobs:
         if: always()
         with:
           name: locked-sim-tools-launcher-smoke
-          path: ${{ github.workspace }}/.round2-smoke/sim/
+          path: ${{ github.workspace }}/.launcher-smoke/sim/
           if-no-files-found: ignore
           retention-days: 14
