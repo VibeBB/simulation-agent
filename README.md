@@ -74,7 +74,9 @@ package is imported.
 
 ## Development
 
-Python 3.12+, uv `0.12.21`, and Docker are used by the repository workflow:
+Python 3.12+, uv `0.12.21`, and Docker are used by the repository workflow.
+The `workflow-lint.yml` job runs actionlint 1.7.12 and zizmor 1.30.1 on pull
+requests, workflow changes to main, manual dispatch, and weekly.
 
 ```bash
 uv sync --locked
@@ -82,12 +84,14 @@ uv run python scripts/verify_all.py --stage fast
 uv run python scripts/check_plugin_load.py
 uv run python scripts/verify_all.py --stage standard
 actionlint
+uvx zizmor@1.30.1 --format plain .github/workflows
 docker build --target sim-tools -f docker/sim-tools.Dockerfile -t sim-tools:local .
 uv run python scripts/smoke_image.py --image sim-tools:local
 ```
 
 See [operations](docs/operations.md), [architecture](docs/architecture.md),
-the [ADRs](docs/adr/), including
-[ADR-0006: Docker-only launcher default](docs/adr/0006-docker-only-launcher-default.md),
 and [Docker notes](docker/README.md) for implementation and deployment
-boundaries.
+boundaries. The [ADRs](docs/adr/) include
+[ADR-0006: Docker-only launcher default](docs/adr/0006-docker-only-launcher-default.md)
+and
+[ADR-0007: Attest published tools images](docs/adr/ADR-0007-attest-published-tools-images.md).

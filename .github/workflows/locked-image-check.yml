@@ -20,6 +20,9 @@ jobs:
     timeout-minutes: 10
     outputs:
       present: ${{ steps.lock.outputs.present }}
+      image: ${{ steps.lock.outputs.image }}
+      digest: ${{ steps.lock.outputs.digest }}
+      attestation: ${{ steps.lock.outputs.attestation }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,24 +37,51 @@ jobs:
 
           path = Path("docker/image-digests.json")
           if not path.is_file():
-              print("present=false", file=open(os.environ["GITHUB_OUTPUT"], "a"))
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                  output.write("present=false\n")
+                  output.write("image=\n")
+                  output.write("digest=\n")
+                  output.write("attestation=\n")
               raise SystemExit(0)
           try:
               data = json.loads(path.read_text(encoding="utf-8"))
-          except (OSError, json.JSONDecodeError) as exc:
+          except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
               raise SystemExit(f"invalid image digest lock: {exc}")
-          entry = data.get("sim_tools") if isinstance(data, dict) else None
+          if not isinstance(data, dict):
+              raise SystemExit("image digest lock must be a JSON object")
+          entry = data.get("sim_tools")
           if not isinstance(entry, dict) or entry.get("image") != "ghcr.io/vibebb/sim-tools":
               raise SystemExit("invalid sim_tools digest lock entry")
+          if "digest" not in entry or "tag" not in entry:
+              raise SystemExit("sim_tools lock must contain digest and tag fields")
           digest = entry.get("digest")
-          if digest is None and entry.get("tag") is None:
+          tag = entry.get("tag")
+          if digest is None and tag is None:
+              if entry.get("attestation") is not None:
+                  raise SystemExit("sim_tools attestation cannot exist without a pinned image")
               present = "false"
-          elif isinstance(digest, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
-              present = "true"
+              attestation = ""
           else:
-              raise SystemExit("invalid sim_tools digest lock entry")
+              if not isinstance(digest, str) or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None:
+                  raise SystemExit("sim_tools digest must be null or a sha256 digest")
+              if not isinstance(tag, str) or re.fullmatch(r"[0-9a-f]{40}-tools", tag) is None:
+                  raise SystemExit("sim_tools tag must be null or a 40-character tools tag")
+              present = "true"
+              attestation = entry.get("attestation")
+              if attestation is None:
+                  attestation = ""
+              elif (
+                  not isinstance(attestation, str)
+                  or re.fullmatch(r"https://\S+", attestation) is None
+                  or "\n" in attestation
+                  or "\r" in attestation
+              ):
+                  raise SystemExit("sim_tools attestation must be an HTTPS URL")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"present={present}\n")
+              output.write(f"image={entry['image'] if present == 'true' else ''}\n")
+              output.write(f"digest={digest if present == 'true' else ''}\n")
+              output.write(f"attestation={attestation}\n")
           PY
   check:
     needs: check-lock
@@ -66,6 +96,19 @@ jobs:
         with:
           python-version: "3.12"
           cache-suffix: locked-image-check
+      - name: Warn that tools image has no attestation metadata
+        if: needs.check-lock.outputs.attestation == ''
+        run: echo "::warning::sim_tools image lock has no attestation metadata; skipping provenance verification."
+      - name: Verify tools image provenance
+        if: needs.check-lock.outputs.attestation != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ needs.check-lock.outputs.image }}
+          DIGEST: ${{ needs.check-lock.outputs.digest }}
+        run: |
+          gh attestation verify "oci://${IMAGE}@${DIGEST}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-sim-images.yml"
       - run: uv sync --locked
       - run: uv run python scripts/pull_locked_image.py --entry sim_tools
       - id: image

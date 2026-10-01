@@ -43,6 +43,10 @@ digest lock is generated after the published image passes the smoke check;
 that workflow. `sim_tools_em` remains reserved with a null digest because its
 optional image requires the separate openEMS/CSXCAD source build and is not
 published by this workflow.
+The published `sim-tools` digest carries a GitHub provenance attestation;
+the attestation URL is stored in both locks and verified by
+`locked-image-check.yml` when present. See
+[ADR-0007](../docs/adr/ADR-0007-attest-published-tools-images.md).
 
 `scripts/measure_image_tools.py` records the commands and versions for Python,
 uv, ngspice, CalculiX, and the installed `sim` package in the digest lock.

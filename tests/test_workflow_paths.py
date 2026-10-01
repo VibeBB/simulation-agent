@@ -48,6 +48,24 @@ def test_publish_excludes_generated_pins() -> None:
     assert "!plugins/sim/tools-image.json" in publish
 
 
+def test_publish_retriggers_for_workflow_and_lock_writer_changes() -> None:
+    publish = (REPO_ROOT / ".github" / "workflows" / "publish-sim-images.yml").read_text(
+        encoding="utf-8"
+    )
+    assert ".github/workflows/publish-sim-images.yml" in publish
+    assert "scripts/update_image_digest_lock.py" in publish
+
+
+def test_locked_image_check_validates_and_verifies_provenance() -> None:
+    locked = (REPO_ROOT / ".github" / "workflows" / "locked-image-check.yml").read_text(
+        encoding="utf-8"
+    )
+    assert 'entry = data.get("sim_tools")' in locked
+    assert 're.fullmatch(r"sha256:[0-9a-f]{64}", digest)' in locked
+    assert "gh attestation verify" in locked
+    assert "publish-sim-images.yml" in locked
+
+
 def test_docker_run_user_is_sim() -> None:
     offenders: list[str] = []
     for workflow in WORKFLOWS:

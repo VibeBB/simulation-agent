@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
+_ATTESTATION_URL = re.compile(r"https://\S+\Z")
 _ENTRIES = {"sim_tools"}
 _RESERVED_ENTRIES = {"sim_tools_em"}
 _ALLOWED_ENTRIES = _ENTRIES | _RESERVED_ENTRIES
@@ -41,6 +42,11 @@ def _load(path: Path) -> dict[str, Any]:
         fields = cast(dict[str, Any], item)
         if not isinstance(fields.get("image"), str) or not fields["image"]:
             raise ValueError(f"image lock entry lacks image: {name}")
+        attestation = fields.get("attestation")
+        if attestation is not None and (
+            not isinstance(attestation, str) or _ATTESTATION_URL.fullmatch(attestation) is None
+        ):
+            raise ValueError(f"image lock attestation must be an HTTPS URL: {name}")
         if fields.get("digest") is None and fields.get("tag") is None:
             if name == "sim_tools_em":
                 continue
@@ -65,6 +71,7 @@ def update_lock(
     workflow_run: str,
     dockerfile: str,
     tools: dict[str, str],
+    attestation: str | None = None,
 ) -> bool:
     if entry not in _ENTRIES:
         raise ValueError(f"unknown image lock entry: {entry}")
@@ -79,11 +86,13 @@ def update_lock(
         raise ValueError("published_at must be ISO-8601") from exc
     if not workflow_run or not dockerfile:
         raise ValueError("workflow_run and dockerfile must not be empty")
+    if attestation is not None and _ATTESTATION_URL.fullmatch(attestation) is None:
+        raise ValueError("attestation must be an HTTPS URL")
     if not tools or any(not key or not value for key, value in tools.items()):
         raise ValueError("tools must contain non-empty string values")
     payload = _load(path)
     before = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    payload[entry] = {
+    record: dict[str, Any] = {
         "digest": digest,
         "dockerfile": dockerfile,
         "image": image,
@@ -92,6 +101,9 @@ def update_lock(
         "tools": dict(sorted(tools.items())),
         "workflow_run": workflow_run,
     }
+    if attestation is not None:
+        record["attestation"] = attestation
+    payload[entry] = record
     after = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     if before == after:
         return False
@@ -111,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workflow-run", required=True)
     parser.add_argument("--dockerfile", required=True)
     parser.add_argument("--tools-json", type=Path, required=True)
+    parser.add_argument("--attestation")
     args = parser.parse_args(argv)
     try:
         value: Any = json.loads(args.tools_json.read_text(encoding="utf-8"))
@@ -129,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
             workflow_run=args.workflow_run,
             dockerfile=args.dockerfile,
             tools=cast(dict[str, str], value),
+            attestation=args.attestation,
         )
     except (OSError, UnicodeDecodeError, ValueError, json.JSONDecodeError) as exc:
         print(f"FAIL: {exc}")
