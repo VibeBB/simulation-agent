@@ -2,10 +2,13 @@
 
 ## SBOM attestations
 
-`publish-sim-images.yml` generates and attests an SPDX-2.3 SBOM for the
-published tools digest and uploads it for 30 days. The returned URL is stored
-as `sbom_attestation`; `locked-image-check.yml` verifies it when present and
+`publish-sim-images.yml` generates and attests a package-level SPDX-2.3 SBOM
+for the published tools digest and uploads the full Syft SBOM as a 90-day
+workflow-run artifact. The returned URL is stored as `sbom_attestation`;
+`locked-image-check.yml` verifies it when present and
 warns while continuing when it is absent.
+The attested SBOM omits file entries and relationships involving files to
+stay below the 16 MiB limit.
 
 ## Runtime configuration
 
@@ -149,3 +152,14 @@ CI and image-publishing jobs use `step-security/harden-runner` in audit-only mod
 ## SDK 1.50.1 feature evaluation
 
 See [simulation-agent SDK v1.50.1 feature evaluation](research/sdk-v1.50.1-feature-evaluation.md).
+
+## Digest-lock PR verification
+
+The publisher dispatches `ci.yml` and `workflow-lint.yml` on the lock branch, then polls the authoritative required-check set for up to 30 minutes. Non-required failures do not block publishing; a concluded required-check failure or a PR closed without merge fails the job. A PR merged externally triggers the existing post-merge main workflows without waiting for their results. If required checks remain pending at the deadline, the publisher arms squash auto-merge with branch deletion and exits successfully so branch protection can complete the merge.
+
+SPDX generation prefers the GHCR registry source, writes temporary data under
+the runner's temporary directory, and disables file metadata. The publisher
+removes file entries and relationships involving files to produce the
+package-level SPDX-2.3 SBOM. A guard reports disk space and the attested SBOM
+size after transformation and fails above 16 MiB; the full Syft SBOM is
+uploaded as a 90-day workflow-run artifact.
