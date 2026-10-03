@@ -184,6 +184,17 @@ Docker image (does not exist — Lynis runs from a pinned git clone);
 non-root USER enforcement and HEALTHCHECK enforcement (CI tools images —
 deferred policy decisions).
 
+First gate outcome: the publish Trivy scan flagged four fixable HIGHs in
+the uv-managed CPython's bundled `pip` payload (`pip/_vendor` urllib3
+2.7.0, msgpack 1.1.2, setuptools 70.3.0) plus the `ensurepip` bundle.
+Nothing in the image invokes pip — dependencies install via `uv` at
+build time and the entrypoint venv is pip-less — so `sim-tools`
+strips `bin/pip*`, `site-packages/pip*`, and `ensurepip` from the
+managed interpreter in the same layer that installs it (deterministic;
+no new pins). `uv pip` still works against the interpreter if ever
+needed. This was preferred over `.trivyignore` waivers because a real
+fix exists.
+
 Changelog evaluation for the adopted pins is in the introducing PR.
 Suppressions: `.hadolint.yaml` waivers above; `.trivyignore` holds
 time-boxed finding IDs — entries must carry an `exp:` date and a

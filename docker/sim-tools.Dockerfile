@@ -37,7 +37,16 @@ COPY src /opt/simulation-agent/src
 COPY plugins/sim /opt/simulation-agent/plugins/sim
 COPY examples /opt/simulation-agent/examples
 
+# The uv-managed CPython bundles pip with vendored copies of urllib3,
+# msgpack, and setuptools that nothing in the image invokes — dependencies
+# install via uv and the entrypoint venv is pip-less — so strip the payload
+# instead of shipping unused vulnerable vendored packages.
 RUN uv python install 3.12 \
+    && rm -rf /opt/uv-python/bin/pip* \
+              /opt/uv-python/cpython-*/bin/pip* \
+              /opt/uv-python/cpython-*/lib/python3.12/site-packages/pip \
+              /opt/uv-python/cpython-*/lib/python3.12/site-packages/pip-*.dist-info \
+              /opt/uv-python/cpython-*/lib/python3.12/ensurepip \
     && uv sync --frozen --no-dev --no-group sdk-check --python 3.12 \
     && SIM_REQUIRED_TOOLS=ngspice,ccx python -m sim doctor --strict
 
