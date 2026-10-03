@@ -79,9 +79,11 @@ jobs:
           build-args: |
             IMAGE_REVISION=${{ github.sha }}
           push: true
+          # Only immutable tags are pushed here: :latest is promoted by the
+          # 'Promote :latest' step below after the Trivy gate passes, so a
+          # failing image never serves :latest.
           tags: |
             ghcr.io/${{ env.IMAGE_OWNER }}/sim-tools:${{ github.sha }}-tools
-            ghcr.io/${{ env.IMAGE_OWNER }}/sim-tools:latest
           cache-from: type=gha
           # A failed cache export must not fail the publish; gha cache
           # imports already degrade to a miss rather than an error, so
@@ -103,7 +105,21 @@ jobs:
           format: sarif
           output: trivy-image.sarif
           limit-severities-for-sarif: true
+      - name: Promote :latest
+        # The Trivy gate above runs before this step, so a gated failure
+        # leaves the previous good :latest untouched. imagetools copies the
+        # manifest server-side — no re-push; attestations and the SBOM keep
+        # referencing the same digest.
+        env:
+          TOOLS_DIGEST: ${{ steps.tools.outputs.digest }}
+        run: |
+          docker buildx imagetools create \
+            "ghcr.io/${IMAGE_OWNER}/sim-tools:latest" \
+            "ghcr.io/${IMAGE_OWNER}/sim-tools@${TOOLS_DIGEST}"
       - name: Scan tools image (Trivy JSON)
+        # Runs even when the SARIF gate failed so gated publishes still
+        # leave a machine-readable per-CVE report for triage.
+        if: always() && steps.tools.outputs.digest != ''
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
@@ -114,15 +130,14 @@ jobs:
           exit-code: '0'
           format: json
           output: trivy-image.json
-          skip-setup-trivy: true
       - name: Upload Trivy SARIF
-        if: always()
+        if: always() && hashFiles('trivy-image.sarif') != ''
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: trivy-image.sarif
           category: trivy-sim-tools
       - name: Upload Trivy JSON report
-        if: always()
+        if: always() && hashFiles('trivy-image.json') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sim-tools-trivy
