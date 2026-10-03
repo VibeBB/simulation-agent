@@ -219,9 +219,9 @@ tmpfs for tools that need scratch space.
 
 CI and image-publishing jobs use `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.
 
-## SDK 1.50.1 feature evaluation
+## SDK 1.51.0 feature evaluation
 
-See [simulation-agent SDK v1.50.1 feature evaluation](research/sdk-v1.50.1-feature-evaluation.md).
+See [simulation-agent SDK v1.51.0 feature evaluation](research/sdk-v1.51.0-feature-evaluation.md).
 
 ## Digest-lock PR verification
 

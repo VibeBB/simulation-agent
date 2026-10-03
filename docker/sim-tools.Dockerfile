@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
-ARG UV_VERSION=0.12.21
-ARG UV_DIGEST=sha256:a7aed3216253ee804de3e2d8afa5073baa1a177335345d43845cd4165e43b711
+ARG UV_VERSION=0.12.22
+ARG UV_DIGEST=sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION}@${UV_DIGEST} AS uv
 
@@ -18,7 +18,7 @@ ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
 LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agent" \
       org.opencontainers.image.licenses="BSD-3-Clause" \
       org.opencontainers.image.revision="${IMAGE_REVISION}" \
-      sim.uv.version="0.12.21"
+      sim.uv.version="0.12.22"
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 
@@ -65,7 +65,7 @@ ENTRYPOINT ["python", "-m", "sim"]
 FROM ${BASE_IMAGE} AS openems-build
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG OPENEMS_COMMIT=89c21b8cb4f4d6c9371499fb34bab89b4a552750
+ARG OPENEMS_COMMIT=81f32e03d514f270e679b63e8861d24eaa03a7e2
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
 

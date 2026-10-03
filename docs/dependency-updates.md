@@ -21,3 +21,25 @@ Deferrals belong in `scripts/dependency_update_deferrals.json`. Each entry is
 scoped to a surface, dependency, exact latest value, reason, and review date.
 Remove or renew a deferral after review; expired deferrals do not suppress
 update candidates.
+
+## Update history
+
+### 2026-10-03 — sdk 1.51.0, uv 0.12.22, openEMS pin
+
+Full changelog review: [SDK v1.51.0 feature evaluation](research/sdk-v1.51.0-feature-evaluation.md).
+
+| Component | From -> To | Decision |
+| --- | --- | --- |
+| `openhands-sdk` / `openhands-tools` (sdk-check group) | 1.50.1 -> 1.51.0 | Adopted. All 18 upstream commits reviewed; fixes adopted implicitly, agent-profiles `tools:` contract already matches plugin frontmatter. |
+| uv | 0.12.21 -> 0.12.22 | Adopted. `required-version`, `ARG UV_VERSION`, `UV_DIGEST` (multi-arch index digest), `sim.uv.version` OCI label, tests, README, AGENTS updated. |
+| `OPENEMS_COMMIT` | 89c21b8 -> 81f32e0 | Adopted. One super-repo commit bumping CSXCAD (numpy-scalar material values) and openEMS (DebyeMaterial fix, memory free, example). Build unchanged. |
+| anchore/sbom-action | already v0.24.3 | No change; pinned at the v0.24.3 commit SHA already. |
+| `KICAD_RFSIM_COMMIT` | already at HEAD | No change; pin equals upstream `main`. |
+| ruff | already 0.16.10 | Already resolved at 0.16.10 in `uv.lock`; no new diagnostics. |
+| `uv.lock` transitive drift | ~25 entries | All within existing specifiers (cyclopts 5.1.1, openapi-pydantic 0.6.0, pyjwt 2.15.1, litellm 1.103.2, etc.). |
+| mcp | deferred at <2 | openhands-sdk 1.51.0 still requires `fastmcp<4` -> `mcp<2`; deferral refreshed to `latest: 2.3.0`. |
+| Python 3.14 | deferred | Unchanged; SDK support unconfirmed. |
+
+Publish-owned locks (`docker/image-digests.json`,
+`plugins/sim/tools-image.json`) intentionally keep recorded image contents
+until the next image publish — they are not hand-edited.
