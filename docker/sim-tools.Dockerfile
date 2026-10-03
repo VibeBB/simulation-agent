@@ -100,13 +100,13 @@ RUN CSXCAD_INSTALL_PATH=/usr/local \
     CSXCAD_NOSCM=1 \
     OPENEMS_NOSCM=1 \
     python3 -m pip install --break-system-packages --no-build-isolation --no-deps \
-        /tmp/openEMS-Project/CSXCAD/python \
+        --no-cache-dir /tmp/openEMS-Project/CSXCAD/python \
     && CSXCAD_INSTALL_PATH=/usr/local \
         OPENEMS_INSTALL_PATH=/usr/local \
         CSXCAD_NOSCM=1 \
         OPENEMS_NOSCM=1 \
         python3 -m pip install --break-system-packages --no-build-isolation --no-deps \
-            /tmp/openEMS-Project/openEMS/python
+            --no-cache-dir /tmp/openEMS-Project/openEMS/python
 
 FROM sim-tools AS sim-tools-em
 
