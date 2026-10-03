@@ -13,6 +13,11 @@ on:
         description: "Explicit X.Y.Z override; leave empty to bump"
         required: false
         type: string
+      dry_run:
+        description: "Rehearse bump, verify, and install-smoke without creating the release"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,6 +44,9 @@ jobs:
       tag: ${{ steps.bump.outputs.tag }}
       sha: ${{ steps.bump.outputs.sha }}
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - name: Require main
         env:
           REF: ${{ github.ref }}
@@ -216,6 +224,9 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.bump-version.outputs.sha }}
@@ -244,6 +255,9 @@ jobs:
       VERSION: ${{ needs.bump-version.outputs.version }}
       SHA: ${{ needs.bump-version.outputs.sha }}
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.bump-version.outputs.sha }}
@@ -259,7 +273,13 @@ jobs:
           mkdir -p dist
           (cd plugins && zip -r "../dist/sim-plugin-v${VERSION}.zip" sim)
           zip -r "dist/sim-examples-v${VERSION}.zip" examples
+      - name: Note dry-run rehearsal
+        if: inputs.dry_run
+        run: |
+          echo "dry_run=true: bump, verify, and install-smoke ran; skipped 'gh release create v${VERSION}'." \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Create release and tag
+        if: '! inputs.dry_run'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
