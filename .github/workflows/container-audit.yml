@@ -36,7 +36,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Resolve and pull pinned images
+      - name: Resolve pinned images
         run: |
           set -euo pipefail
           python3 - <<'PY' >> "$GITHUB_ENV"
@@ -56,6 +56,11 @@ jobs:
           print("PINNED_IMAGES=" + " ".join(pairs))
           print("PRIMARY_IMAGE=" + pairs[0].split("=", 1)[1])
           PY
+          # Reuse the vulnerability DB across the scans in this job.
+          echo "TRIVY_CACHE_DIR=$RUNNER_TEMP/trivy-cache" >> "$GITHUB_ENV"
+      - name: Pull pinned images
+        run: |
+          set -euo pipefail
           for pair in $PINNED_IMAGES; do
             docker pull "${pair#*=}"
           done
@@ -81,7 +86,7 @@ jobs:
               --format json --output "reports/trivy-${name}.json" "$ref"
           done
       - name: Upload Trivy SARIF (sim-tools)
-        if: always()
+        if: always() && hashFiles('sarif/trivy-sim-tools.sarif') != ''
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: sarif/trivy-sim-tools.sarif
@@ -109,6 +114,11 @@ jobs:
           set -uo pipefail
           git clone --depth 1 --branch 3.1.7 \
             https://github.com/CISOfy/lynis "$RUNNER_TEMP/lynis"
+          # Tags are re-pointable: pin the audit to the exact 3.1.7 commit.
+          # A re-pointed tag fails this checkout instead of silently running
+          # different audit code.
+          git -C "$RUNNER_TEMP/lynis" checkout --detach \
+            2e99f92265760b73fd6b139868eb8d4116624030
           # tests/test_workflow_paths.py requires every workflow
           # `docker run --user` to be the image's `sim` user — Lynis runs
           # unprivileged here, which is acceptable for a trend-only audit.
@@ -143,6 +153,7 @@ jobs:
           import glob
           import json
           import os
+          import sys
           from collections import Counter
 
           refs = {}
@@ -197,12 +208,22 @@ jobs:
           cis = {"passed": 0, "failed": 0}
           try:
               cis_data = json.load(open(os.environ["TRIVY_CIS"], encoding="utf-8"))
-              for result in cis_data.get("Results", []):
-                  summary = result.get("MisconfSummary") or {}
-                  cis["passed"] += int(summary.get("Successes", 0))
-                  cis["failed"] += int(summary.get("Failures", 0))
           except (OSError, ValueError):
-              pass
+              cis_data = {}
+
+          # trivy --compliance nests check summaries below the top-level
+          # Results; walk the tree recursively so none are missed.
+          def _summaries(node):
+              yield node
+              for child in node.get("Results") or []:
+                  yield from _summaries(child)
+          for result in _summaries(cis_data):
+              summary = result.get("MisconfSummary") or {}
+              cis["passed"] += int(summary.get("Successes", 0))
+              cis["failed"] += int(summary.get("Failures", 0))
+          if cis["passed"] + cis["failed"] == 0:
+              # dead telemetry must fail, not masquerade as coverage
+              sys.exit("Docker CIS scan produced no results")
           lynis = {"hardening_index": "unknown", "warnings": 0}
           try:
               for line in open(os.environ["LYNIS_OUT"] + "/lynis-report.dat",
@@ -226,7 +247,7 @@ jobs:
           print(json.dumps(report, indent=2, sort_keys=True))
           PY
       - name: Upload hardening report (sim-tools)
-        if: always()
+        if: always() && hashFiles('container-hardening.json', 'reports/trivy-sim-tools.json') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sim-tools-audit

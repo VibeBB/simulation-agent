@@ -30,3 +30,11 @@ MCP server speaks stdio only and never opens network listeners.
 
 Secrets must never be written to logs, inputs, contracts, or commits; see
 the invariants in [AGENTS.md](AGENTS.md).
+
+## Repository hardening posture
+
+OpenSSF Scorecard findings on branch protection (required approvers, code
+owners, administrator binding) are intentional for this solo-maintainer
+bot-merge workflow — merges are performed by automation and gated on the
+required-check set rather than human approval. The full rationale is in
+[docs/operations.md](docs/operations.md#settings-level-posture-recorded-decisions).

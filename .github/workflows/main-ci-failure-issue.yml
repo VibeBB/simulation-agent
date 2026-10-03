@@ -5,6 +5,7 @@ on:
   workflow_run:
     workflows:
       - "CI"
+      - "Container hardening audit"
       - "Dependency update check"
       - "Digest lock PR sweep"
       - "Locked image check"
@@ -20,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: main-ci-failure-issue
+  group: main-ci-failure-issue-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -33,6 +34,9 @@ jobs:
       # Files, comments on, and closes the main CI failure tracking issue.
       issues: write
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - name: Update tracking issue
         env:
           GH_TOKEN: ${{ github.token }}
