@@ -114,7 +114,7 @@ jobs:
           TOOLS_DIGEST: ${{ steps.tools.outputs.digest }}
         run: |
           docker buildx imagetools create \
-            "ghcr.io/${IMAGE_OWNER}/sim-tools:latest" \
+            --tag "ghcr.io/${IMAGE_OWNER}/sim-tools:latest" \
             "ghcr.io/${IMAGE_OWNER}/sim-tools@${TOOLS_DIGEST}"
       - name: Scan tools image (Trivy JSON)
         # Runs even when the SARIF gate failed so gated publishes still
