@@ -15,6 +15,7 @@ from scripts.check_dependency_updates import (
     check_docker_args,
     check_docker_base_digest,
     check_docker_commits,
+    check_git_clones,
     docker_base_image,
     main,
 )
@@ -54,6 +55,31 @@ def test_docker_dependency_surfaces_match_simulation_image():
     assert digest_status.note.startswith("compare the immutable digest")
     statuses = check_docker_args(ROOT, list_remote_tags=lambda _url: ["0.12.21"])
     assert [(status.name, status.current) for status in statuses] == [("UV_VERSION", "0.12.21")]
+
+
+def test_lynis_clone_pin_parsed():
+    statuses = check_git_clones(ROOT, list_remote_tags=lambda url: ["3.1.7"])
+    lynis = next(status for status in statuses if status.name == "CISOfy/lynis")
+    assert lynis.current == "3.1.7"
+    assert lynis.latest == "3.1.7"
+    assert lynis.source == "container-audit.yml"
+    assert lynis.outdated is False
+
+
+def test_git_clones_report_outdated_and_fetch_failed():
+    statuses = check_git_clones(ROOT, list_remote_tags=lambda url: ["3.1.7", "3.2.0"])
+    lynis = next(status for status in statuses if status.name == "CISOfy/lynis")
+    assert lynis.latest == "3.2.0"
+    assert lynis.outdated is True
+
+    def failed_tags(url: str) -> list[str]:
+        raise OSError(url)
+
+    statuses = check_git_clones(ROOT, list_remote_tags=failed_tags)
+    lynis = next(status for status in statuses if status.name == "CISOfy/lynis")
+    assert lynis.latest == "?"
+    assert lynis.fetch_failed is True
+    assert lynis.outdated is False
 
 
 def test_docker_commit_pins_compare_with_upstream_heads():

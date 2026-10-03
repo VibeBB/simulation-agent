@@ -5,11 +5,12 @@ Surfaces checked: direct/dev PyPI dependencies (compared against the
 resolved versions in uv.lock), uv.lock transitive drift via
 `uv lock --upgrade --dry-run`, the uv required-version pin, GitHub Actions
 `uses:` pins (40-char SHA + version comment), `uvx` tool pins in workflows,
-Docker ARG pins in docker/*.Dockerfile, the Docker base image tag, and the
-Python minor versions referenced by the repo (pyproject requires-python,
-Dockerfile `uv python install`, CI matrix) against the latest stable CPython
-minor. Simulation source commit pins are compared with their GitHub upstream
-default-branch heads.
+Docker ARG pins in docker/*.Dockerfile, the Docker base image tag, `git
+clone --branch` pins inside workflows (e.g. the pinned Lynis checkout in
+container-audit.yml), and the Python minor versions referenced by the repo
+(pyproject requires-python, Dockerfile `uv python install`, CI matrix)
+against the latest stable CPython minor. Simulation source commit pins are
+compared with their GitHub upstream default-branch heads.
 
 Renders a per-surface markdown report (and optionally JSON). Deferrals live
 in scripts/dependency_update_deferrals.json; see docs/dependency-updates.md
@@ -47,6 +48,7 @@ DEPENDENCY_SURFACES = (
     "docker-commit",
     "docker-base",
     "docker-base-digest",
+    "git-clone",
 )
 
 FetchJson = Callable[[str], Any]
@@ -374,6 +376,41 @@ def check_github_actions(
                 )
             )
     return statuses + uvx_statuses
+
+
+_GIT_CLONE = re.compile(
+    r"git\s+clone[\s\S]{0,200}?--branch\s+(\S+)\s*(?:\\\s*\n\s*)?"
+    r"\s*(https://github\.com/([\w.-]+/[\w.-]+))"
+)
+
+
+def check_git_clones(
+    repo_root: Path, *, list_remote_tags: ListRemoteTags = _default_list_remote_tags
+) -> list[DependencyStatus]:
+    """`git clone --branch <ref> <github-url>` pins inside workflows
+    (e.g. the pinned Lynis checkout in container-audit.yml)."""
+    statuses: list[DependencyStatus] = []
+    seen: set[tuple[str, str]] = set()
+    for workflow in workflow_files(repo_root):
+        for ref, _url, repo in _GIT_CLONE.findall(workflow.read_text(encoding="utf-8")):
+            if (repo, ref) in seen:
+                continue
+            seen.add((repo, ref))
+            latest = _github_latest_tag(repo, list_remote_tags)
+            outdated = bool(latest) and latest != ref
+            statuses.append(
+                DependencyStatus(
+                    "git-clone",
+                    repo,
+                    ref,
+                    latest or "?",
+                    workflow.name,
+                    outdated,
+                    "" if latest else "fetch failed",
+                    fetch_failed=not latest,
+                )
+            )
+    return statuses
 
 
 _DOCKER_ARG = re.compile(r"^ARG\s+([A-Z_]+)=([^\s#]+)", re.MULTILINE)
@@ -763,6 +800,7 @@ def check_dependency_updates(
         *check_github_actions(repo_root, list_remote_tags=cached_tags),
         *check_docker_args(repo_root, list_remote_tags=cached_tags),
         *check_docker_commits(repo_root, list_remote_head=list_remote_head),
+        *check_git_clones(repo_root, list_remote_tags=cached_tags),
         *check_docker_base(repo_root, fetch_json=fetch_json),
         *check_docker_base_digest(repo_root),
         *check_python_versions(repo_root, list_remote_tags=cached_tags),
@@ -781,6 +819,7 @@ def render_markdown(statuses: list[DependencyStatus]) -> str:
         "docker-commit": "Docker source commit",
         "docker-base": "Docker base image",
         "docker-base-digest": "Docker base digest",
+        "git-clone": "Workflow git clones",
     }
     lines = ["# Dependency update check report", ""]
     for surface, label in labels.items():
