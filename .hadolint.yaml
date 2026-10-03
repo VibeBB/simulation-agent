@@ -1,0 +1,15 @@
+# hadolint configuration for docker/*.Dockerfile
+# Rules waived here are documented in docs/operations.md.
+failure-threshold: warning
+trustedRegistries:
+  - docker.io
+  - ghcr.io
+ignored:
+  # apt-get install is not version-pinned: exact deb versions rot when
+  # Ubuntu archives drop them, and downloaded third-party tools are
+  # already pinned by version + sha256/commit ARGs.
+  - DL3008
+  # USER references the named `sim` account created in the image
+  # (system uid 10001), which is the intended operator inside the tools
+  # image.
+  - DL3066
