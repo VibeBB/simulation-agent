@@ -50,6 +50,10 @@ RUN uv python install 3.12 \
     && uv sync --frozen --no-dev --no-group sdk-check --python 3.12 \
     && SIM_REQUIRED_TOOLS=ngspice,ccx python -m sim doctor --strict
 
+# Tighten the login.defs umask to 027 (Lynis AUTH-9328): the image has no
+# interactive users, so files created at runtime stay group-readable only.
+RUN printf 'UMASK 027\n' >> /etc/login.defs
+
 RUN if ! getent group sim >/dev/null; then groupadd --system sim; fi \
     && useradd --system --uid 10001 --gid sim --create-home --shell /usr/sbin/nologin sim \
     && chown -R sim:sim /opt/simulation-agent

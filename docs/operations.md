@@ -200,6 +200,21 @@ Suppressions: `.hadolint.yaml` waivers above; `.trivyignore` holds
 time-boxed finding IDs — entries must carry an `exp:` date and a
 rationale line here when added.
 
+The weekly audit runs Lynis with the committed
+`docker/lynis-container.prf` profile, which skips tests that are
+inapplicable inside a container (kernel/systemd/mounts/storage/
+network/PAM/accounting are governed by the runtime flags below, not the
+image filesystem), so the Hardening Index and suggestion list reflect
+image-controlled state. Remaining suggestions are fixed in the
+Dockerfile (`UMASK 027` in login.defs, inherited by `sim-tools-em`) or
+silenced only with a documented reason.
+
+`sim_launcher.py` applies the runtime-hardening flags the container
+profile defers to: `--network none`, `--user uid:gid`,
+`--cap-drop ALL`, `--security-opt no-new-privileges`. A `--read-only`
+root filesystem stays an optional hardening for callers that supply
+tmpfs for tools that need scratch space.
+
 ## CI runner network auditing
 
 CI and image-publishing jobs use `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.
