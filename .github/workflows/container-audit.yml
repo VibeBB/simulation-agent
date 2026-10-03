@@ -116,11 +116,16 @@ jobs:
           chmod 777 "$LYNIS_OUT"
           docker run --rm --user sim \
             -v "$RUNNER_TEMP/lynis:/lynis:ro" \
+            -v "$GITHUB_WORKSPACE/docker/lynis-container.prf:/container.prf:ro" \
             -v "$LYNIS_OUT:/out" \
             --entrypoint /bin/sh "$PRIMARY_IMAGE" \
             -c 'cd /lynis && ./lynis audit system --quick --no-colors \
+                --profile /container.prf \
                 --report-file /out/lynis-report.dat --logfile /out/lynis.log \
-                --auditor github-actions' || true
+                --auditor github-actions; \
+                # Lynis writes its outputs with umask 027 (0640 sim-owned):
+                # loosen them so the runner-side grep below can read them.
+                chmod 644 /out/lynis-report.dat /out/lynis.log 2>/dev/null' || true
           index=$(grep '^hardening_index=' "$LYNIS_OUT/lynis-report.dat" \
             | head -1 | cut -d= -f2 || true)
           warnings=$(grep -c '^warning\[\]' "$LYNIS_OUT/lynis-report.dat" || true)
