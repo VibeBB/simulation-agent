@@ -53,8 +53,8 @@ def test_docker_dependency_surfaces_match_simulation_image():
     digest_status = check_docker_base_digest(ROOT)[0]
     assert digest_status.current.startswith("sha256:")
     assert digest_status.note.startswith("compare the immutable digest")
-    statuses = check_docker_args(ROOT, list_remote_tags=lambda _url: ["0.12.21"])
-    assert [(status.name, status.current) for status in statuses] == [("UV_VERSION", "0.12.21")]
+    statuses = check_docker_args(ROOT, list_remote_tags=lambda _url: ["0.12.22"])
+    assert [(status.name, status.current) for status in statuses] == [("UV_VERSION", "0.12.22")]
 
 
 def test_lynis_clone_pin_parsed():
