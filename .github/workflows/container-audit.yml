@@ -3,6 +3,12 @@ name: Container hardening audit
 on:
   schedule:
     - cron: "37 3 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/container-audit.yml"
+      - "docker/image-digests.json"
+      - "docker/lynis-container.prf"
   workflow_dispatch:
 
 permissions:
