@@ -178,5 +178,5 @@ def test_measure_records_probe_commands(monkeypatch: pytest.MonkeyPatch) -> None
         "ngspice": "ngspice --version: ** ngspice-45.2 : Circuit level simulation program",
         "python": "python --version: Python 3.12.14",
         "sim": "python -c 'import sim; print(sim.__version__)': 0.1.0",
-        "uv": "uv --version: 0.12.22",
+        "uv": "uv --version: 0.12.23",
     }
