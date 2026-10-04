@@ -13,7 +13,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))
 
-PLUGIN_PATH = re.compile(r"plugins/sim/[\w\-/*{}.,]+")
+# Escaped characters in the charset cover regex literals inside workflow
+# globs (e.g. `plugins/sim/tools-image\.json`); matches are unescaped
+# before the existence check.
+PLUGIN_PATH = re.compile(r"plugins/sim/[\w\-/*{}.,\\]+")
 USER_FLAG = re.compile(r"--user\s+(\S+)")
 
 # Paths the publish workflow writes — never committed (ADR: digest lock).
@@ -29,7 +32,7 @@ def test_plugin_paths_referenced_exist() -> None:
     for workflow in WORKFLOWS:
         text = workflow.read_text(encoding="utf-8")
         for literal in PLUGIN_PATH.findall(text):
-            path = literal.rstrip(".,'\"")
+            path = literal.rstrip(".,'\"").replace("\\", "")
             if path in GENERATED:
                 continue
             if "*" in path:
@@ -54,6 +57,41 @@ def test_publish_retriggers_for_workflow_and_lock_writer_changes() -> None:
     )
     assert ".github/workflows/publish-sim-images.yml" in publish
     assert "scripts/update_image_digest_lock.py" in publish
+
+
+def test_ci_changes_glob_mirrors_publish_triggers() -> None:
+    """The changes job's sim-tools glob covers every publish trigger path
+    and drops every path the publish trigger negates — a PR touching only
+    e.g. scripts/smoke_image.py must rebuild the image, while a lock-only
+    bot branch must not.
+    """
+    ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    publish = (REPO_ROOT / ".github" / "workflows" / "publish-sim-images.yml").read_text(
+        encoding="utf-8"
+    )
+    paths_match = re.search(r'paths:\n((?:\s+- "[^"]+"\n)+)', publish)
+    assert paths_match, "publish on.push.paths block not found"
+    entries = re.findall(r'- "([^"]+)"', paths_match.group(1))
+    glob_match = re.search(r"grep -Eq '([^']+)'", ci)
+    assert glob_match, "ci changes-job glob not found"
+    ci_glob = re.compile(glob_match.group(1))
+    exclude_match = re.search(r"grep -Ev '([^']+)'", ci)
+    assert exclude_match, "ci changes-job exclusion glob not found"
+    ci_exclude = re.compile(exclude_match.group(1))
+
+    uncovered: list[str] = []
+    still_matched: list[str] = []
+    for entry in entries:
+        if entry.startswith("!"):
+            if not ci_exclude.search(entry[1:]):
+                still_matched.append(entry)
+            continue
+        # gitignore '**' tails are checked with a representative child.
+        sample = entry[:-2] + "x" if entry.endswith("/**") else entry
+        if not ci_glob.search(sample) or ci_exclude.search(sample):
+            uncovered.append(entry)
+    assert not uncovered, f"publish paths missing from ci glob: {uncovered}"
+    assert not still_matched, f"negated publish paths not excluded in ci: {still_matched}"
 
 
 def test_locked_image_check_validates_and_verifies_provenance() -> None:

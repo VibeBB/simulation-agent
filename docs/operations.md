@@ -244,6 +244,29 @@ package-level SPDX-2.3 SBOM. A guard reports disk space and the attested SBOM
 size after transformation and fails above 16 MiB; the full Syft SBOM is
 uploaded as a 90-day workflow-run artifact.
 
+## Main-only verification boundary
+
+Some steps can never execute on a pull request — pull_request CI sees only
+the pre-merge path. Two post-merge failures (the imagetools positional-arg
+bug and the pin-PR required-checks failure) shipped through green PR CI for
+exactly this reason.
+
+Main-only / dispatch-only behavior lives in:
+
+- `publish-sim-images.yml`: everything (push-triggered) — build+push,
+  `Promote :latest`, attestation `push-to-registry`, the digest-lock write
+  and the pin-PR merge loop in `scripts/publish_image_pin_pr.sh`.
+- `digest-lock-sweep.yml`: bot-PR merge and post-merge dispatch.
+- `release.yml`: dispatch-only; the entire bump → verify → tag → release
+  path.
+- `container-audit.yml` / `check-dependency-updates.yml`: scheduled
+  triggers, registry pulls, and report-issue transitions.
+
+Rule: after merging a change that touches any of the above, dispatch the
+affected workflow once (`gh workflow run`) and verify the touched step in
+its run log — do not wait for the next scheduled run or real publish to
+discover a defect.
+
 ## Settings-level posture (recorded decisions)
 
 The following live in repository Settings rather than code; they are

@@ -90,3 +90,8 @@ and disables file metadata. The attested SBOM is package-level SPDX 2.3;
 file entries and relationships involving files are omitted to stay below
 16 MiB. The full Syft SBOM is attached to the workflow run as a 90-day
 artifact.
+
+Steps that only run on main or dispatch are listed in
+`docs/operations.md` under "Main-only verification boundary"; after merging
+a workflow change that touches them, dispatch the affected workflow once
+and verify the step in its run log.
