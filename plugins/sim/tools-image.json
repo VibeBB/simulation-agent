@@ -1,11 +1,11 @@
 {
-  "attestation": "https://github.com/VibeBB/simulation-agent/attestations/52498108",
-  "digest": "sha256:ffcefaf9a0e71ab3ecf97e4e9ce9e29d9e6d5f19a6c05622091b88fdebd526a0",
+  "attestation": "https://github.com/VibeBB/simulation-agent/attestations/52507965",
+  "digest": "sha256:3c4f26669c45f7dbbe2baad6958eb69c8d982c72f31c38de900b2390415f19df",
   "dockerfile": "docker/sim-tools.Dockerfile",
   "image": "ghcr.io/vibebb/sim-tools",
-  "published_at": "2026-10-04T00:37:38Z",
-  "sbom_attestation": "https://github.com/VibeBB/simulation-agent/attestations/52498129",
-  "tag": "e84eeb1a61b00ac4087ae2fd1a74c93af9dfe574-tools",
+  "published_at": "2026-10-04T02:19:04Z",
+  "sbom_attestation": "https://github.com/VibeBB/simulation-agent/attestations/52507985",
+  "tag": "cbb3ad8bd8bae64529d19821523756e7c467a4e4-tools",
   "tools": {
     "ccx": "dpkg-query -W -f='${Version}\\n' calculix-ccx: 2.21-1build1",
     "ngspice": "ngspice --version: ** ngspice-45.2 : Circuit level simulation program",
@@ -13,5 +13,5 @@
     "sim": "python -c 'import sim; print(sim.__version__)': 0.1.0",
     "uv": "uv --version: 0.12.22 (x86_64-unknown-linux-musl)"
   },
-  "workflow_run": "https://github.com/VibeBB/simulation-agent/actions/runs/37165286829"
+  "workflow_run": "https://github.com/VibeBB/simulation-agent/actions/runs/37170472950"
 }
