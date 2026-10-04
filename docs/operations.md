@@ -49,7 +49,7 @@ and continue. A verification failure fails the check. See
 Both Docker stages use this same base. Resolute provides `calculix-ccx`
 `2.21-1build1`, ngspice `45.2+ds-1`, and system Python
 `3.14.3-0ubuntu2`; the simulation application itself remains in its
-uv-managed Python `3.12.14` environment. Debian Trixie has no
+uv-managed Python `3.14` environment. Debian Trixie has no
 `calculix-ccx` installation candidate; it only publishes
 `calculix-ccx-test` `2.22-1`, which recommends the unavailable solver. This
 is why the solver image uses Ubuntu. CI runners also use Ubuntu 26.04.

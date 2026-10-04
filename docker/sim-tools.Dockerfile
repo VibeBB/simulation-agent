@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
-ARG UV_VERSION=0.12.22
-ARG UV_DIGEST=sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc
+ARG UV_VERSION=0.12.23
+ARG UV_DIGEST=sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION}@${UV_DIGEST} AS uv
 
@@ -18,7 +18,7 @@ ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
 LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agent" \
       org.opencontainers.image.licenses="BSD-3-Clause" \
       org.opencontainers.image.revision="${IMAGE_REVISION}" \
-      sim.uv.version="0.12.22"
+      sim.uv.version="0.12.23"
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 
@@ -41,12 +41,12 @@ COPY examples /opt/simulation-agent/examples
 # msgpack, and setuptools that nothing in the image invokes — dependencies
 # install via uv and the entrypoint venv is pip-less — so strip the payload
 # instead of shipping unused vulnerable vendored packages.
-RUN uv python install 3.12 \
+RUN uv python install 3.14 \
     && rm -rf /opt/uv-python/bin/pip* \
               /opt/uv-python/cpython-*/bin/pip* \
-              /opt/uv-python/cpython-*/lib/python3.12/site-packages/pip \
-              /opt/uv-python/cpython-*/lib/python3.12/site-packages/pip-*.dist-info \
-              /opt/uv-python/cpython-*/lib/python3.12/ensurepip \
+              /opt/uv-python/cpython-*/lib/python3.14/site-packages/pip \
+              /opt/uv-python/cpython-*/lib/python3.14/site-packages/pip-*.dist-info \
+              /opt/uv-python/cpython-*/lib/python3.14/ensurepip \
     && uv sync --frozen --no-dev --no-group sdk-check --python 3.12 \
     && SIM_REQUIRED_TOOLS=ngspice,ccx python -m sim doctor --strict
 
