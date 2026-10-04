@@ -42,13 +42,13 @@ COPY examples /opt/simulation-agent/examples
 # install via uv and the entrypoint venv is pip-less — so strip the payload
 # instead of shipping unused vulnerable vendored packages.
 RUN uv python install 3.14 \
+    && uv sync --frozen --no-dev --no-group sdk-check --python 3.12 \
     && rm -rf /opt/uv-python/bin/pip* \
               /opt/uv-python/cpython-*/bin/pip* \
               /opt/uv-python/cpython-*/lib/python3.*/site-packages/pip \
               /opt/uv-python/cpython-*/lib/python3.*/site-packages/pip-*.dist-info \
               /opt/uv-python/cpython-*/lib/python3.*/ensurepip \
               /root/.cache/uv \
-    && uv sync --frozen --no-dev --no-group sdk-check --python 3.12 \
     && SIM_REQUIRED_TOOLS=ngspice,ccx python -m sim doctor --strict
 
 # Tighten the login.defs umask to 027 (Lynis AUTH-9328): the image has no
