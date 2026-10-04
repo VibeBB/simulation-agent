@@ -90,7 +90,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
+        include:
+          # Forward-compatibility canary ahead of the 2026-10-09 stable
+          # release: step-level continue-on-error keeps the leg green while
+          # the last step reports the failure as an annotation.
+          - python-version: "3.15"
+            experimental: true
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
@@ -102,16 +108,26 @@ jobs:
           fetch-depth: 2
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        id: setup-uv
+        continue-on-error: ${{ matrix.experimental || false }}
         with:
           python-version: ${{ matrix.python-version }}
           cache-suffix: verify-${{ matrix.python-version }}
       - name: Install simulation tools
+        id: install-simulation-tools
+        continue-on-error: ${{ matrix.experimental || false }}
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y ngspice calculix-ccx
       - name: Verify fast stage
+        id: verify-fast-stage
+        continue-on-error: ${{ matrix.experimental || false }}
         run: uv run python scripts/verify_all.py --stage fast
 
+      - name: Report 3.15 canary outcome
+        if: matrix.experimental && (steps.setup-uv.outcome == 'failure' || steps.install-simulation-tools.outcome == 'failure' || steps.verify-fast-stage.outcome == 'failure')
+        run: |
+          echo "::warning::Python 3.15 canary leg failed — forward-compat signal, not a gate failure"
   plugin-load:
     runs-on: ubuntu-26.04
     timeout-minutes: 15
@@ -126,7 +142,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache-suffix: plugin-load
       - run: uv sync --locked --group sdk-check
       - run: uv run --group sdk-check python scripts/check_plugin_load.py
@@ -147,7 +163,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache-suffix: docker-smoke
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # Read the layers the publish job exports (its default gha scope is

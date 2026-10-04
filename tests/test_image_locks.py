@@ -163,7 +163,7 @@ def test_measure_records_probe_commands(monkeypatch: pytest.MonkeyPatch) -> None
             0,
             stdout=(
                 "Python 3.12.14\n"
-                "uv 0.12.22\n"
+                "uv 0.12.23\n"
                 "** ngspice-45.2 : Circuit level simulation program\n"
                 "ccx=2.21-1build1\n"
                 "sim=0.1.0\n"

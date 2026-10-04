@@ -1,6 +1,6 @@
 # Simulation images
 
-`sim-tools` contains the base deterministic environment (Python 3.12,
+`sim-tools` contains the base deterministic environment (Python 3.14,
 ngspice, and CalculiX). `sim-tools-em` adds openEMS/CSXCAD and the pinned
 KiCad-rfsim runner. Both build stages use
 `docker.io/library/ubuntu:26.04` (Resolute), pinned to
@@ -32,7 +32,7 @@ interfaces. The image builds those interfaces from the pinned
 system Python `3.14.3` and `cython3` `3.1.6+dfsg-1ubuntu2`, and checks them
 with `/usr/bin/python3`. The tested interfaces report CSXCAD `0.7.0` and
 openEMS `0.37.0`; the separate simulation package remains in its uv-managed
-Python `3.12.14` environment.
+Python `3.14` environment.
 
 `image-digests.json` reserves entries for published image references. Local
 build tags are not published digests and must not be recorded as such.

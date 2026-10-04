@@ -74,7 +74,7 @@ package is imported.
 
 ## Development
 
-Python 3.12+, uv `0.12.22`, and Docker are used by the repository workflow.
+Python 3.14+, uv `0.12.23`, and Docker are used by the repository workflow.
 The `workflow-lint.yml` job runs actionlint 1.7.12 and zizmor 1.30.1 on pull
 requests, workflow changes to main, manual dispatch, and weekly.
 
