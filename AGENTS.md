@@ -85,11 +85,25 @@ existing post-merge main workflows. If required checks are still pending at
 the deadline, the publisher arms squash auto-merge with branch deletion and
 exits successfully.
 
-SPDX SBOM generation prefers registry pulls, uses runner temporary storage,
-and disables file metadata. The attested SBOM is package-level SPDX 2.3;
-file entries and relationships involving files are omitted to stay below
-16 MiB. The full Syft SBOM is attached to the workflow run as a 90-day
-artifact.
+The release bump-version state machine lives in `scripts/release_bump.sh`
+(the workflow step is a thin wrapper) and is covered by
+`tests/test_release_bump.py`, which exercises it against a stubbed `gh` and
+local git remotes. `release.yml`'s `dry_run` input rehearses the release:
+version arithmetic and tag checks run and downstream jobs still execute,
+but nothing is committed, pushed, tagged, or released.
+
+`publish-sim-images.yml` accepts a `dry_run` dispatch input that rehearses
+the publish: the image is built into the local daemon (`push: false`,
+`load: true`) and the Trivy gate, SBOM chain, measurement, and smoke checks
+still run against the local tag, but nothing is pushed, `:latest` is not
+promoted, no attestation is stored, the digest-lock PR is not opened, no
+post-merge workflow is dispatched, and no SARIF reaches code scanning.
+
+SPDX SBOM generation prefers registry pulls (the local daemon under
+`dry_run`), uses runner temporary storage, and disables file metadata. The
+attested SBOM is package-level SPDX 2.3; file entries and relationships
+involving files are omitted to stay below 16 MiB. The full Syft SBOM is
+attached to the workflow run as a 90-day artifact.
 
 Steps that only run on main or dispatch are listed in
 `docs/operations.md` under "Main-only verification boundary"; after merging

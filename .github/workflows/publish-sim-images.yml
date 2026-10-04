@@ -25,6 +25,12 @@ on:
       - "!plugins/sim/tools-image.json"
       - "!docker/README.md"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Rehearse the publish: build and gate the image locally, but skip the registry push, :latest promotion, attestations, SARIF upload, the digest-lock PR, and post-merge dispatches"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: publish-sim-images
@@ -79,7 +85,10 @@ jobs:
           target: sim-tools
           build-args: |
             IMAGE_REVISION=${{ github.sha }}
-          push: true
+          # dry_run keeps the image in the local daemon for the gates
+          # below; nothing reaches the registry.
+          push: ${{ inputs.dry_run != true }}
+          load: ${{ inputs.dry_run == true }}
           # Only immutable tags are pushed here: :latest is promoted by the
           # 'Promote :latest' step below after the Trivy gate passes, so a
           # failing image never serves :latest.
@@ -111,10 +120,11 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          # Scan the exact pushed digest — the content the SBOM and
-          # provenance attestations bind to. One scan feeds the gate, the
-          # SARIF render, and the triage artifact below.
-          scan-ref: ghcr.io/${{ env.IMAGE_OWNER }}/sim-tools@${{ steps.tools.outputs.digest }}
+          # Scan the immutable sha tag — the same manifest the pushed
+          # digest addresses on a real run, and the local image under
+          # dry_run. One scan feeds the gate, the SARIF render, and the
+          # triage artifact below.
+          scan-ref: ghcr.io/${{ env.IMAGE_OWNER }}/sim-tools:${{ github.sha }}-tools
           version: v0.75.0
           scanners: vuln,secret,misconfig,license
           exit-code: '0'
@@ -141,6 +151,7 @@ jobs:
         # leaves the previous good :latest untouched. imagetools copies the
         # manifest server-side — no re-push; attestations and the SBOM keep
         # referencing the same digest.
+        if: inputs.dry_run != true
         env:
           TOOLS_DIGEST: ${{ steps.tools.outputs.digest }}
         run: |
@@ -162,7 +173,8 @@ jobs:
           trivy convert --format sarif --severity HIGH,CRITICAL \
             --output trivy-image.sarif "$RUNNER_TEMP/trivy-sarif-source.json"
       - name: Upload Trivy SARIF
-        if: always() && hashFiles('trivy-image.sarif') != ''
+        # A rehearsal must not file code-scanning alerts.
+        if: always() && inputs.dry_run != true && hashFiles('trivy-image.sarif') != ''
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: trivy-image.sarif
@@ -175,6 +187,7 @@ jobs:
           path: trivy-image.json
           retention-days: 90
       - name: Attest tools image provenance
+        if: inputs.dry_run != true
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -184,8 +197,23 @@ jobs:
       - name: Resolve tools digest
         env:
           BUILT_DIGEST: ${{ steps.tools.outputs.digest }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            # Nothing was pushed: retag the daemon-local image under a
+            # slash-free name the measurement probe accepts, and reference
+            # it everywhere below.
+            docker tag \
+              "ghcr.io/${IMAGE_OWNER}/sim-tools:${GITHUB_SHA}-tools" \
+              "sim-tools:${GITHUB_SHA}-rehearsal"
+            {
+              printf 'TOOLS_REF=sim-tools:%s-rehearsal\n' "$GITHUB_SHA"
+              printf 'TOOLS_DIGEST=%s\n' "${BUILT_DIGEST:-unpublished}"
+              printf 'TOOLS_TAG=%s-tools\n' "$GITHUB_SHA"
+            } >> "$GITHUB_ENV"
+            exit 0
+          fi
           case "$BUILT_DIGEST" in sha256:*) ;; *) echo "invalid tools digest: $BUILT_DIGEST" >&2; exit 1 ;; esac
           TOOLS_REF="ghcr.io/${IMAGE_OWNER}/sim-tools@${BUILT_DIGEST}"
           TOOLS_TAG="${GITHUB_SHA}-tools"
@@ -193,7 +221,8 @@ jobs:
       - name: Generate tools SPDX SBOM
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         env:
-          SYFT_SOURCE_IMAGE_DEFAULT_PULL_SOURCE: registry
+          # dry_run reads the just-built image from the local daemon.
+          SYFT_SOURCE_IMAGE_DEFAULT_PULL_SOURCE: ${{ inputs.dry_run == true && 'docker' || 'registry' }}
           TMPDIR: ${{ runner.temp }}
           SYFT_FILE_METADATA_SELECTION: none
         with:
@@ -232,6 +261,7 @@ jobs:
               raise SystemExit("tools SBOM must use SPDX-2.3")
           PY
       - name: Attest tools SBOM
+        if: inputs.dry_run != true
         id: attest_sbom
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
@@ -253,9 +283,13 @@ jobs:
       - name: Verify published tools smoke
         env:
           TOOLS_REF: ${{ env.TOOLS_REF }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
-          docker pull "$TOOLS_REF"
+          # dry_run already holds the image in the local daemon.
+          if [ "$DRY_RUN" != "true" ]; then
+            docker pull "$TOOLS_REF"
+          fi
           uv run python scripts/smoke_image.py --image "$TOOLS_REF"
       - name: Record published image summary
         run: |
@@ -268,6 +302,8 @@ jobs:
             echo "- **workflow run**: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Update digest lock and merge PR
+        # dry_run stops at the summary: no lock PR, no post-merge dispatches.
+        if: inputs.dry_run != true
         env:
           GH_TOKEN: ${{ github.token }}
           ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
@@ -344,3 +380,16 @@ jobs:
           # changes job then skips rebuilding the image this job just
           # built, scanned, and smoked.
           bash scripts/publish_image_pin_pr.sh "$pr_url" "$branch" "$base_sha" "ci.yml locked-image-check.yml"
+      - name: Note dry-run skips
+        if: inputs.dry_run
+        run: |
+          {
+            echo "### dry-run rehearsal"
+            echo
+            echo "Built and gated \`$TOOLS_REF\` without publishing. Skipped:"
+            echo "- registry push of the image tag"
+            echo "- SARIF upload to code scanning"
+            echo "- provenance and SBOM attestations"
+            echo "- :latest promotion"
+            echo "- digest-lock pull request and post-merge dispatches"
+          } >> "$GITHUB_STEP_SUMMARY"
