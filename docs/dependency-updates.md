@@ -24,6 +24,14 @@ update candidates.
 
 ## Update history
 
+### 2026-10-04 — GitHub Actions latest state, Python 3.14, 3.15 canary
+
+| Component | From -> To | Decision |
+| --- | --- | --- |
+| uv | 0.12.22 -> 0.12.23 | Adopted. `required-version`, `ARG UV_VERSION`, `UV_DIGEST`, `sim.uv.version` OCI label, tests, README updated. |
+| Python pins | 3.12 -> 3.14 | Adopted. Image `uv python install`/`python3.x` paths, `.python-version`, scalar workflow pins, and a new ci.yml matrix leg. |
+| Python 3.15 | - -> canary leg | Adopted as experimental matrix leg (step-level `continue-on-error` + `::warning::` report). Deferred as default: `openhands-sdk` -> `fastuuid==0.14.0` -> PyO3 0.26 caps interpreters at 3.14; the leg detects when upstream wheels land. |
+
 ### 2026-10-03 — sdk 1.51.0, uv 0.12.22, openEMS pin
 
 Full changelog review: [SDK v1.51.0 feature evaluation](research/sdk-v1.51.0-feature-evaluation.md).

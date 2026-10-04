@@ -764,15 +764,26 @@ def check_python_versions(
         values.append((args["PYTHON_VERSION"], _DOCKERFILES[0]))
     for dockerfile in _DOCKERFILES:
         path = repo_root / "docker" / dockerfile
-        if path.is_file():
-            for minor in re.findall(
-                r"uv\s+python\s+install\s+(\d+\.\d+)", path.read_text(encoding="utf-8")
-            ):
-                values.append((minor, dockerfile))
-    ci = repo_root / ".github" / "workflows" / "ci.yml"
-    if ci.is_file():
-        for minor in re.findall(r'"3\.(\d+)"', ci.read_text(encoding="utf-8")):
-            values.append((f"3.{minor}", "ci.yml"))
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for minor in re.findall(r"uv\s+python\s+install\s+(\d+\.\d+)", text):
+            values.append((minor, dockerfile))
+        for minor in re.findall(r"uv\s+venv\s+--python\s+(\d+\.\d+)", text):
+            values.append((minor, dockerfile))
+        for minor in re.findall(r"python3\.(\d+)", text):
+            values.append((f"3.{minor}", dockerfile))
+    dotfile = repo_root / ".python-version"
+    if dotfile.is_file():
+        match = re.search(r"(\d+\.\d+)", dotfile.read_text(encoding="utf-8"))
+        if match is not None:
+            values.append((match.group(1), ".python-version"))
+    for workflow in workflow_files(repo_root):
+        text = workflow.read_text(encoding="utf-8")
+        minors = {f"3.{minor}" for minor in re.findall(r'"3\.(\d+)"', text)}
+        minors.update(re.findall(r"python-version:\s*(\d+\.\d+)", text))
+        for minor in sorted(minors):
+            values.append((minor, workflow.name))
     tags = list_remote_tags("https://github.com/python/cpython")
     stable_minors = sorted(
         {
