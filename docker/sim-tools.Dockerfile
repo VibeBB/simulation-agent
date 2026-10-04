@@ -47,6 +47,7 @@ RUN uv python install 3.14 \
               /opt/uv-python/cpython-*/lib/python3.*/site-packages/pip \
               /opt/uv-python/cpython-*/lib/python3.*/site-packages/pip-*.dist-info \
               /opt/uv-python/cpython-*/lib/python3.*/ensurepip \
+              /root/.cache/uv \
     && uv sync --frozen --no-dev --no-group sdk-check --python 3.12 \
     && SIM_REQUIRED_TOOLS=ngspice,ccx python -m sim doctor --strict
 
