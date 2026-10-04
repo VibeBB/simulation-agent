@@ -44,9 +44,10 @@ COPY examples /opt/simulation-agent/examples
 RUN uv python install 3.14 \
     && rm -rf /opt/uv-python/bin/pip* \
               /opt/uv-python/cpython-*/bin/pip* \
-              /opt/uv-python/cpython-*/lib/python3.14/site-packages/pip \
-              /opt/uv-python/cpython-*/lib/python3.14/site-packages/pip-*.dist-info \
-              /opt/uv-python/cpython-*/lib/python3.14/ensurepip \
+              /opt/uv-python/cpython-*/lib/python3.*/site-packages/pip \
+              /opt/uv-python/cpython-*/lib/python3.*/site-packages/pip-*.dist-info \
+              /opt/uv-python/cpython-*/lib/python3.*/ensurepip \
+              /root/.cache/uv \
     && uv sync --frozen --no-dev --no-group sdk-check --python 3.12 \
     && SIM_REQUIRED_TOOLS=ngspice,ccx python -m sim doctor --strict
 
