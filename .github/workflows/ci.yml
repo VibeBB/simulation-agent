@@ -45,7 +45,7 @@ jobs:
             exit 0
           fi
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/changed-files"
-          if grep -Eq '^(docker/|src/|plugins/sim/|examples/|pyproject\.toml$|uv\.lock$|\.dockerignore$|LICENSE$)' "$RUNNER_TEMP/changed-files"; then
+          if grep -Eq '^(docker/|src/|plugins/sim/|examples/|scripts/smoke_|pyproject\.toml$|uv\.lock$|\.dockerignore$|LICENSE$)' "$RUNNER_TEMP/changed-files"; then
             echo "sim-tools=true" >> "$GITHUB_OUTPUT"
           else
             echo "sim-tools=false" >> "$GITHUB_OUTPUT"
