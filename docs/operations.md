@@ -215,6 +215,16 @@ profile defers to: `--network none`, `--user uid:gid`,
 root filesystem stays an optional hardening for callers that supply
 tmpfs for tools that need scratch space.
 
+### CIS baseline
+
+The Trivy CIS compliance scan reports `DS-0002` (image runs as root) and
+`DS-0026` (no `HEALTHCHECK`) on every tools image. Both are waived with
+`exp:` entries in `.trivyignore`: these are CI build/tool containers, not
+deployed services — workflows that need a non-root UID already run the
+image with `docker run --user`, and batch tooling has no health endpoint
+to probe. The waivers renew or get re-fixed by Dockerfile changes when
+they lapse.
+
 ## CI runner network auditing
 
 Every job in every workflow uses `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.
