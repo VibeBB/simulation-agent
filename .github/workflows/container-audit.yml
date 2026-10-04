@@ -51,6 +51,9 @@ jobs:
           set -euo pipefail
           python3 - <<'PY' >> "$GITHUB_ENV"
           import json
+          import os
+          import subprocess
+          import sys
 
           entries = json.load(open("docker/image-digests.json", encoding="utf-8"))
           pairs = []
@@ -64,16 +67,22 @@ jobs:
           if not pairs:
               raise SystemExit("no published images in docker/image-digests.json")
           print("PINNED_IMAGES=" + " ".join(pairs))
-          PY
           # The CIS/Lynis probes run against the published tools image:
-          # resolve it by explicit lock key with the same structural
-          # validation locked-image-check applies — never alphabetical
-          # order over the lock entries.
-          echo "PRIMARY_IMAGE=$(python3 scripts/print_locked_image.py --entry sim_tools)" >> "$GITHUB_ENV"
+          # resolve it by explicit lock key through print_locked_image.py
+          # so it gets the same structural validation locked-image-check
+          # applies — never alphabetical order over the lock entries.
+          ref = subprocess.run(
+              [sys.executable, "scripts/print_locked_image.py", "--entry", "sim_tools"],
+              check=True,
+              capture_output=True,
+              text=True,
+          ).stdout.strip()
+          print("PRIMARY_IMAGE=" + ref)
           # Shared by all Trivy invocations in this job; the actions/cache
           # step below persists the ~120MB vulnerability DB across the
           # weekly runs instead of re-downloading it every time.
-          echo "TRIVY_CACHE_DIR=$HOME/.cache/trivy" >> "$GITHUB_ENV"
+          print("TRIVY_CACHE_DIR=" + os.path.join(os.environ["HOME"], ".cache", "trivy"))
+          PY
       - name: Pull pinned images
         run: |
           set -euo pipefail
