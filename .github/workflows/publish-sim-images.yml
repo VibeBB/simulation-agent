@@ -90,22 +90,52 @@ jobs:
           # imports already degrade to a miss rather than an error, so
           # ignore-error applies to cache-to only.
           cache-to: type=gha,mode=max,ignore-error=true
-      - name: Scan tools image (Trivy SARIF)
+      - name: Resolve Trivy DB cache key
+        id: trivy_week
+        run: |
+          echo "week=$(date +%G-W%V)" >> "$GITHUB_OUTPUT"
+          # Shared by every Trivy invocation in this job.
+          echo "TRIVY_CACHE_DIR=$HOME/.cache/trivy" >> "$GITHUB_ENV"
+      - name: Restore Trivy vulnerability DB
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/trivy
+          # ISO-week key: the weekly container audit owns refreshing this
+          # entry; publish only restores it.
+          key: trivy-db-${{ runner.os }}-${{ steps.trivy_week.outputs.week }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+          lookup-only: true
+      - name: Scan tools image (Trivy JSON)
         id: trivy-scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           # Scan the exact pushed digest — the content the SBOM and
-          # provenance attestations bind to.
+          # provenance attestations bind to. One scan feeds the gate, the
+          # SARIF render, and the triage artifact below.
           scan-ref: ghcr.io/${{ env.IMAGE_OWNER }}/sim-tools@${{ steps.tools.outputs.digest }}
           version: v0.75.0
-          scanners: vuln,secret,misconfig
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '1'
-          format: sarif
-          output: trivy-image.sarif
-          limit-severities-for-sarif: true
+          scanners: vuln,secret,misconfig,license
+          exit-code: '0'
+          format: json
+          output: trivy-image.json
+      - name: Gate tools image (Trivy)
+        id: trivy-gate
+        run: |
+          set -uo pipefail
+          # Reproduces the retired SARIF scan's gate exactly: fixable
+          # HIGH/CRITICAL vulnerabilities plus every HIGH/CRITICAL secret
+          # or misconfiguration finding blocks the publish.
+          if python3 scripts/trivy_report_utils.py gate trivy-image.json \
+              > "$RUNNER_TEMP/trivy-gate.md"; then
+            status=0
+          else
+            status=1
+          fi
+          cat "$RUNNER_TEMP/trivy-gate.md"
+          cat "$RUNNER_TEMP/trivy-gate.md" >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
       - name: Promote :latest
         # The Trivy gate above runs before this step, so a gated failure
         # leaves the previous good :latest untouched. imagetools copies the
@@ -117,20 +147,20 @@ jobs:
           docker buildx imagetools create \
             --tag "ghcr.io/${IMAGE_OWNER}/sim-tools:latest" \
             "ghcr.io/${IMAGE_OWNER}/sim-tools@${TOOLS_DIGEST}"
-      - name: Scan tools image (Trivy JSON)
-        # Runs even when the SARIF gate failed so gated publishes still
-        # leave a machine-readable per-CVE report for triage.
-        if: always() && steps.tools.outputs.digest != ''
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: image
-          scan-ref: ghcr.io/${{ env.IMAGE_OWNER }}/sim-tools@${{ steps.tools.outputs.digest }}
-          version: v0.75.0
-          scanners: vuln,secret,misconfig,license
-          ignore-unfixed: false
-          exit-code: '0'
-          format: json
-          output: trivy-image.json
+      - name: Render Trivy SARIF
+        # Runs even when the gate failed so gated publishes still upload
+        # their findings to code scanning for triage.
+        if: always() && hashFiles('trivy-image.json') != ''
+        run: |
+          set -euo pipefail
+          # trivy convert has no --ignore-unfixed, so vulnerabilities
+          # without a fix are dropped here first; --severity then applies
+          # the HIGH/CRITICAL limit the SARIF gate used to enforce.
+          jq '.Results = ((.Results // []) | map(if .Vulnerabilities then
+                .Vulnerabilities |= map(select((.FixedVersion // "") != "")) else . end))' \
+            trivy-image.json > "$RUNNER_TEMP/trivy-sarif-source.json"
+          trivy convert --format sarif --severity HIGH,CRITICAL \
+            --output trivy-image.sarif "$RUNNER_TEMP/trivy-sarif-source.json"
       - name: Upload Trivy SARIF
         if: always() && hashFiles('trivy-image.sarif') != ''
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
@@ -310,4 +340,7 @@ jobs:
           pr_url=$(retry gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
             --title "Update sim image digest lock" --body "$body")
           echo "pin PR: $pr_url" >> "$GITHUB_STEP_SUMMARY"
-          bash scripts/publish_image_pin_pr.sh "$pr_url" "$branch" "" "ci.yml locked-image-check.yml"
+          # base_sha lets the dispatched ci.yml scope a lock-only diff: the
+          # changes job then skips rebuilding the image this job just
+          # built, scanned, and smoked.
+          bash scripts/publish_image_pin_pr.sh "$pr_url" "$branch" "$base_sha" "ci.yml locked-image-check.yml"

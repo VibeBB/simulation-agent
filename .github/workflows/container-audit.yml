@@ -61,36 +61,70 @@ jobs:
           if not pairs:
               raise SystemExit("no published images in docker/image-digests.json")
           print("PINNED_IMAGES=" + " ".join(pairs))
-          print("PRIMARY_IMAGE=" + pairs[0].split("=", 1)[1])
           PY
-          # Reuse the vulnerability DB across the scans in this job.
-          echo "TRIVY_CACHE_DIR=$RUNNER_TEMP/trivy-cache" >> "$GITHUB_ENV"
+          # The CIS/Lynis probes run against the published tools image:
+          # resolve it by explicit lock key with the same structural
+          # validation locked-image-check applies — never alphabetical
+          # order over the lock entries.
+          echo "PRIMARY_IMAGE=$(python3 scripts/print_locked_image.py --entry sim_tools)" >> "$GITHUB_ENV"
+          # Shared by all Trivy invocations in this job; the actions/cache
+          # step below persists the ~120MB vulnerability DB across the
+          # weekly runs instead of re-downloading it every time.
+          echo "TRIVY_CACHE_DIR=$HOME/.cache/trivy" >> "$GITHUB_ENV"
       - name: Pull pinned images
         run: |
           set -euo pipefail
           for pair in $PINNED_IMAGES; do
-            docker pull "${pair#*=}"
+            ref="${pair#*=}"
+            for attempt in 1 2 3 4 5; do
+              if docker pull "$ref"; then break; fi
+              if [ "$attempt" -eq 5 ]; then
+                echo "::error::docker pull $ref failed after 5 attempts" >&2
+                exit 1
+              fi
+              echo "docker pull $ref attempt $attempt failed; retrying" >&2
+              sleep $((attempt * 10))
+            done
           done
+      - name: Resolve Trivy DB cache key
+        id: trivy_week
+        run: echo "week=$(date +%G-W%V)" >> "$GITHUB_OUTPUT"
+      - name: Restore Trivy vulnerability DB
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/trivy
+          # ISO-week key: the vulnerability DB refreshes daily upstream;
+          # a weekly key bounds staleness while sharing the ~120MB
+          # download across the job's scans and across weekly runs.
+          key: trivy-db-${{ runner.os }}-${{ steps.trivy_week.outputs.week }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
       # The per-image scans loop over every pinned digest, so they use the
       # trivy CLI (via setup-trivy) rather than one trivy-action step each.
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.75.0
-      - name: Scan pinned images (Trivy SARIF + JSON)
+      - name: Scan pinned images (Trivy JSON, SARIF via convert)
         run: |
           set -euo pipefail
           mkdir -p sarif reports
           for pair in $PINNED_IMAGES; do
             name="${pair%%=*}"
             ref="${pair#*=}"
-            # The digest is frozen; the vulnerability DB is not — these scans
-            # surface newly disclosed CVEs against the shipped tools images.
-            trivy image --scanners vuln,secret,misconfig \
-              --severity CRITICAL,HIGH --ignore-unfixed \
-              --format sarif --output "sarif/trivy-${name}.sarif" "$ref"
+            # The digest is frozen; the vulnerability DB is not — the scan
+            # surfaces newly disclosed CVEs against the shipped tools
+            # images. One scan per image: the SARIF for code scanning is
+            # derived from the same JSON (trivy convert has no
+            # --ignore-unfixed, so unfixed vulnerabilities are dropped
+            # first and --severity applies the HIGH/CRITICAL limit).
             trivy image --scanners vuln,secret,misconfig,license \
               --include-non-failures \
               --format json --output "reports/trivy-${name}.json" "$ref"
+            jq '.Results = ((.Results // []) | map(if .Vulnerabilities then
+                  .Vulnerabilities |= map(select((.FixedVersion // "") != "")) else . end))' \
+              "reports/trivy-${name}.json" > "$RUNNER_TEMP/trivy-${name}-sarif.json"
+            trivy convert --format sarif --severity HIGH,CRITICAL \
+              --output "sarif/trivy-${name}.sarif" "$RUNNER_TEMP/trivy-${name}-sarif.json"
           done
       - name: Upload Trivy SARIF (sim-tools)
         if: always() && hashFiles('sarif/trivy-sim-tools.sarif') != ''
@@ -109,9 +143,24 @@ jobs:
       - name: Run Docker CIS compliance report (primary image)
         run: |
           set -euo pipefail
-          trivy image --compliance docker-cis-1.6.0 --report all \
-            --format json --output "$RUNNER_TEMP/trivy-cis.json" \
-            "${PRIMARY_IMAGE}"
+          # trivy exits 0 even when a mirror flake yields an empty Results
+          # payload, so the retry keys on the MisconfSummary content, not
+          # the exit code.
+          for attempt in 1 2; do
+            if trivy image --compliance docker-cis-1.6.0 --report all \
+              --format json --output "$RUNNER_TEMP/trivy-cis.json" \
+              "${PRIMARY_IMAGE}" && \
+              python3 scripts/trivy_report_utils.py cis-nonempty \
+              "$RUNNER_TEMP/trivy-cis.json"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              echo "::error::Docker CIS scan produced an empty results payload after retry" >&2
+              exit 1
+            fi
+            echo "CIS scan returned an empty results payload; retrying once" >&2
+            sleep 15
+          done
       - name: Run informational Lynis audit inside the primary image
         id: lynis
         continue-on-error: true
@@ -304,19 +353,30 @@ jobs:
           # does not exist (observed before the first report issue landed).
           gh label create container-hardening --repo "$GITHUB_REPOSITORY" \
             --color d93f0b --description "Container hardening report" --force
-          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+          # Match the most recent report issue whether open or closed: a
+          # clean run edits the same issue in place instead of creating a
+          # fresh one only to close it (the previous code added a new
+          # closed issue on every clean scheduled run).
+          number_state=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all \
             --label container-hardening \
             --search "in:title Container hardening report" \
-            --json number --jq '.[0].number // empty')
+            --limit 1 --json number,state \
+            --jq 'if .[0] then "\(.[0].number) \(.[0].state)" else empty end')
+          number=${number_state%% *}
+          state=$(printf '%s' "${number_state#* }" | tr '[:upper:]' '[:lower:]')
           if [ -n "$number" ]; then
             gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$REPORT_MD"
           else
             number=$(gh issue create --repo "$GITHUB_REPOSITORY" \
               --title "Container hardening report" \
               --label container-hardening --body-file "$REPORT_MD" | sed 's#.*/##')
+            state=open
           fi
           gate=$(python3 -c 'import json, os; print(json.load(open(os.environ["REPORT_JSON"], encoding="utf-8"))["gate"]["fixable_high_or_critical"])')
-          if [ "$gate" = "0" ] && [ -n "$number" ]; then
+          if [ "$gate" != "0" ] && [ "$state" = "closed" ]; then
+            gh issue reopen "$number" --repo "$GITHUB_REPOSITORY" \
+              --comment "Findings regressed; report body refreshed."
+          elif [ "$gate" = "0" ] && [ "$state" != "closed" ]; then
             gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
               --comment "No fixable HIGH/CRITICAL findings remain."
           fi

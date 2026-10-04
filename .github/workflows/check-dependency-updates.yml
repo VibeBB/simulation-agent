@@ -63,18 +63,31 @@ jobs:
           # does not exist (observed before the first report issue landed).
           gh label create dependency-updates --repo "$GITHUB_REPOSITORY" \
             --color 0366d6 --description "Dependency update report" --force
-          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+          # Match the most recent report issue whether open or closed: a
+          # clean run edits the same issue in place instead of creating a
+          # fresh one only to close it (the previous code added a new
+          # closed issue on every clean scheduled run).
+          number_state=$(gh issue list --repo "$GITHUB_REPOSITORY" --state all \
             --label dependency-updates \
             --search "in:title Dependency update check report" \
-            --json number --jq '.[0].number // empty')
+            --limit 1 --json number,state \
+            --jq 'if .[0] then "\(.[0].number) \(.[0].state)" else empty end')
+          number=${number_state%% *}
+          state=$(printf '%s' "${number_state#* }" | tr '[:upper:]' '[:lower:]')
           if [ -n "$number" ]; then
             gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/report.md"
           else
             number=$(gh issue create --repo "$GITHUB_REPOSITORY" \
               --title "Dependency update check report" \
               --label dependency-updates --body-file "$RUNNER_TEMP/report.md" | sed 's#.*/##')
+            state=open
           fi
-          if [ "$OUTDATED" = "0" ] && [ "$UNKNOWN_COUNT" = "0" ] && [ -n "$number" ]; then
+          if [ "$OUTDATED" != "0" ] || [ "$UNKNOWN_COUNT" != "0" ]; then
+            if [ "$state" = "closed" ]; then
+              gh issue reopen "$number" --repo "$GITHUB_REPOSITORY" \
+                --comment "Update candidates or unknown pins found; report body refreshed."
+            fi
+          elif [ "$state" != "closed" ]; then
             gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
               --comment "All checked dependencies are current."
           fi

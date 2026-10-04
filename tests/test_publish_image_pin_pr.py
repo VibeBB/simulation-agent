@@ -22,11 +22,20 @@ set -eu
 printf '%s\\n' "$*" >> "$GH_STUB_CALLS"
 case "$1 $2" in
   "pr view")
-    case "$GH_STUB_CASE" in
-      merged) printf 'MERGED\\n' ;;
-      closed) printf 'CLOSED\\n' ;;
-      *) printf 'OPEN\\n' ;;
-    esac
+    if [[ "$*" == *"headRefOid"* ]]; then
+      printf '%s\\n' "${GH_STUB_HEAD_SHA:-}"
+    else
+      case "$GH_STUB_CASE" in
+        merged) printf 'MERGED\\n' ;;
+        closed) printf 'CLOSED\\n' ;;
+        *) printf 'OPEN\\n' ;;
+      esac
+    fi
+    ;;
+  "run list")
+    # Space-separated head SHAs of existing runs on the branch.
+    # shellcheck disable=SC2086
+    printf '%s\\n' ${GH_STUB_RUN_HEADSHAS:-}
     ;;
   "workflow run")
     ;;
@@ -168,6 +177,52 @@ def test_pin_pr_state_and_required_checks(
         assert "api -X POST repos/" in call_log
     if case == "required-failure":
         assert "--auto --squash --delete-branch" not in call_log
+
+
+def test_dispatch_skipped_when_pr_run_covers_head(
+    publish_pin_pr: tuple[Path, dict[str, str], Path],
+    tmp_path: Path,
+) -> None:
+    """A pull_request run that already covers the branch head makes the
+    explicit dispatch a no-op; the rest of the flow is unchanged."""
+    script, env, calls = publish_pin_pr
+    env.update(
+        {
+            "GH_STUB_CASE": "action-required",
+            "GH_STUB_HEAD_SHA": "deadbeef" * 5,
+            "GH_STUB_RUN_HEADSHAS": "deadbeef" * 5,
+        }
+    )
+
+    result = run_helper(script, env)
+    summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
+    call_log = calls.read_text(encoding="utf-8")
+
+    assert result.returncode == 0
+    assert summary.count("already covers pin PR head") == 2
+    assert "workflow run" not in call_log
+    assert "api -X POST repos/" in call_log
+    assert "--auto --squash --delete-branch" in call_log
+
+
+def test_dispatch_proceeds_when_pr_run_head_differs(
+    publish_pin_pr: tuple[Path, dict[str, str], Path],
+) -> None:
+    script, env, calls = publish_pin_pr
+    env.update(
+        {
+            "GH_STUB_CASE": "action-required",
+            "GH_STUB_HEAD_SHA": "deadbeef" * 5,
+            "GH_STUB_RUN_HEADSHAS": "cafe" * 10,
+        }
+    )
+
+    result = run_helper(script, env)
+    call_log = calls.read_text(encoding="utf-8")
+
+    assert result.returncode == 0
+    assert call_log.count("workflow run ci.yml --repo") == 1
+    assert call_log.count("workflow run workflow-lint.yml --repo") == 1
 
 
 def test_unreported_checks_transition_to_green_json(

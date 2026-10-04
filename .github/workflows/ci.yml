@@ -7,6 +7,10 @@ on:
         required: false
         type: string
   workflow_dispatch:
+    inputs:
+      base_sha:
+        required: false
+        type: string
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
@@ -37,7 +41,7 @@ jobs:
           persist-credentials: false
       - id: scope
         env:
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event.before }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
@@ -46,7 +50,14 @@ jobs:
             exit 0
           fi
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/changed-files"
-          if grep -Eq '^(docker/|src/|plugins/sim/|examples/|scripts/smoke_|pyproject\.toml$|uv\.lock$|\.dockerignore$|LICENSE$)' "$RUNNER_TEMP/changed-files"; then
+          # The publish trigger negates its generated locks and the
+          # docs-only README; mirror that so a lock-only bot branch or a
+          # README edit does not rebuild the image it pinned/described.
+          grep -Ev '^(docker/image-digests\.json|plugins/sim/tools-image\.json|docker/README\.md)$' \
+            "$RUNNER_TEMP/changed-files" > "$RUNNER_TEMP/relevant-files" || true
+          # Keep this glob in sync with the publish workflow's paths: list
+          # (tests/test_workflow_paths.py asserts the coverage).
+          if grep -Eq '^(docker/|src/|plugins/sim/|examples/|scripts/(smoke_image\.py|measure_image_tools\.py|print_locked_image\.py|pull_locked_image\.py|update_image_digest_lock\.py|publish_image_pin_pr\.sh|package_level_sbom\.py)|\.github/workflows/publish-sim-images\.yml|pyproject\.toml$|uv\.lock$|\.dockerignore$|LICENSE$)' "$RUNNER_TEMP/relevant-files"; then
             echo "sim-tools=true" >> "$GITHUB_OUTPUT"
           else
             echo "sim-tools=false" >> "$GITHUB_OUTPUT"
@@ -139,5 +150,12 @@ jobs:
           python-version: "3.12"
           cache-suffix: docker-smoke
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - run: docker buildx build --load --target sim-tools -f docker/sim-tools.Dockerfile -t sim-tools:ci .
+      # Read the layers the publish job exports (its default gha scope is
+      # the build target name) but export under a separate scope so PR
+      # runs never evict the publish cache.
+      - run: >-
+          docker buildx build --load --target sim-tools
+          -f docker/sim-tools.Dockerfile -t sim-tools:ci
+          --cache-from type=gha,scope=sim-tools
+          --cache-to type=gha,mode=max,ignore-error=true,scope=sim-tools-ci .
       - run: uv run python scripts/smoke_image.py --image sim-tools:ci
