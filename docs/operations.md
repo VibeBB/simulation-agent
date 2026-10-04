@@ -258,7 +258,14 @@ Main-only / dispatch-only behavior lives in:
   and the pin-PR merge loop in `scripts/publish_image_pin_pr.sh`.
 - `digest-lock-sweep.yml`: bot-PR merge and post-merge dispatch.
 - `release.yml`: dispatch-only; the entire bump → verify → tag → release
-  path.
+  path. The bump-version state machine is script-backed
+  (`scripts/release_bump.sh`) and covered by `tests/test_release_bump.py`;
+  a `dry_run=true` dispatch rehearses version arithmetic and tag checks
+  against HEAD without committing, pushing, tagging, or releasing.
+- `publish-sim-images.yml` `dry_run` dispatch input: the whole pipeline
+  runs locally (Trivy gate, SBOM chain, measurement, smoke) against the
+  daemon-local image — no registry push, `:latest` promotion, attestations,
+  SARIF upload, digest-lock PR, or post-merge dispatches.
 - `container-audit.yml` / `check-dependency-updates.yml`: scheduled
   triggers, registry pulls, and report-issue transitions.
 
@@ -283,4 +290,5 @@ so audits do not re-flag them:
   evaluate pull requests.
 - `release.yml` is dispatch-only; run it once with `dry_run=true` before the
   first real release to rehearse bump, verify, and install-smoke without
-  creating a GitHub release.
+  creating a GitHub release. The same applies to
+  `publish-sim-images.yml`'s `dry_run=true` input before a real publish.
