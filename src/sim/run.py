@@ -862,7 +862,7 @@ def _fem_plot(brief: SimulationBrief, out_dir: Path) -> bytes | None:
         else []
     )
     limit = (
-        f", limit = {plot.fmt(fem.limits.max_deflection_mm)} mm"
+        f", limit = {fem.limits.max_deflection_mm:.3g} mm"
         if fem.limits.max_deflection_mm is not None
         else ""
     )
@@ -872,7 +872,8 @@ def _fem_plot(brief: SimulationBrief, out_dir: Path) -> bytes | None:
         xlabel="x (mm)",
         ylabel="Deflection magnitude (-z), mm",
         hlines=hlines,
-        note=f"tip = {plot.fmt(tip)} mm ({source}){limit}",
+        markers=[(length, tip, "tip")],
+        note=f"tip = {tip:.3g} mm ({source}){limit}",
     )
 
 

@@ -401,7 +401,8 @@ def line_chart(
     if title:
         canvas.text(10, 8, title, BLACK, 2)
     if note:
-        canvas.text(10, 26, note, GRAY)
+        note_x = max(left + 4, right - canvas.text_width(note) - 20)
+        canvas.text(note_x, top + 8 + len(drawn) * 12 + 4, note, GRAY)
     return canvas.to_png()
 
 

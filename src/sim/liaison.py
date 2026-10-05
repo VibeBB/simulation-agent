@@ -16,7 +16,7 @@ from typing import Literal, cast
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .records import records_dir, sha256_file, tree_sha256, valid_event_ids
+from .records import sha256_file, tree_sha256, valid_event_ids
 from .workspace import reject_symlinks, workspace_path, workspace_root
 
 SCHEMA_VERSION = 2
@@ -296,8 +296,6 @@ def ux_respond(payload: dict[str, object], root: Path | None = None) -> dict[str
         raise ValueError("impression_refs must be a list of event_id strings")
     decision_refs = [item for item in decision_raw if isinstance(item, str)]
     impression_refs = [item for item in impression_raw if isinstance(item, str)]
-    directory = records_dir(base)
-    del directory
     valid = valid_event_ids(base)
     decision_ids = valid["decision"]
     impression_ids = valid["stage_impression"] | valid["vision_review"]
