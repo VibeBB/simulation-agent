@@ -11,6 +11,7 @@ from .brief import load_brief, schema
 from .doctor import run_doctor
 from .imports import write_import_record
 from .records import RECORDERS, records_summary
+from .report import sha256_file
 from .requests import load_request
 from .responses import write_response
 from .run import run_simulation
@@ -42,6 +43,8 @@ def _parser() -> argparse.ArgumentParser:
         item.add_argument("--out", default=None)
     report = subparsers.add_parser("report")
     report.add_argument("outdir")
+    plots = subparsers.add_parser("plots")
+    plots.add_argument("outdir")
     do_import = subparsers.add_parser("import")
     do_import.add_argument("file")
     do_import.add_argument("--brief", required=True)
@@ -171,6 +174,28 @@ def main(argv: list[str] | None = None) -> int:
             report = json.loads(report_path.read_text(encoding="utf-8"))
             _print(report)
             return {"pass": 0, "fail": 1, "unknown": 3}.get(report.get("verdict"), 3)
+        if args.command == "plots":
+            out_dir = workspace_path(args.outdir, root)
+            report_path = workspace_path(out_dir / "sim-report.json", root)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            entries = cast(list[dict[str, str]], report.get("plots", []))
+            missing: list[str] = []
+            for item in entries:
+                try:
+                    plot_path = workspace_path(item["path"], root)
+                except ValueError:
+                    missing.append(item["path"])
+                    continue
+                if not plot_path.is_file() or sha256_file(plot_path) != item["sha256"]:
+                    missing.append(item["path"])
+            _print(
+                {
+                    "plots": entries,
+                    "plot_errors": report.get("plot_errors", []),
+                    "missing": missing,
+                }
+            )
+            return 0
         if args.command == "import":
             brief_path = workspace_path(args.brief, root)
             brief = load_brief(brief_path)

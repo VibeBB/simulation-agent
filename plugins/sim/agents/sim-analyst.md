@@ -8,6 +8,7 @@ tools:
   - grep
   - glob
   - task_tracker
+  - VisionInspectTool
 mcp_config:
   sim:
     command: sh
@@ -34,7 +35,7 @@ hooks:
         - type: command
           name: record-vision-tool-event
           command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_vision_tool_event.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_vision_tool_event.py"'
-    - matcher: file_editor
+    - matcher: file_editor|sim_run|sim_gates|sim_respond|sim_plots|sim_spice|sim_pdn|sim_thermal|sim_wca|sim_emc|sim_dft|sim_fem|sim_rf
       hooks:
         - type: command
           name: record-image-observation
@@ -47,6 +48,14 @@ provenance `manifest.jsonl`. A value read off an image (a scope reading,
 a plotted curve, a thermal spot) is an assumption whose source is that
 image path: ask the user to confirm it before it becomes a brief bound,
 and never report it as solver output.
+
+Every run also writes deterministic PNG plots to `out/<name>/plots/` and
+returns them inline from the `sim_run`/`sim_gates`/`sim_<analysis>` tools
+(`sim_plots` re-loads them from an existing report). View every plot the
+report lists and record a `sim_record_vision_review` for each, naming its
+checklist slug (`sim-summary`, `margin-chart`, `spice-waveform`,
+`rf-sparams`, `dft-testpoints`, `fem-deflection`). Plot observations are
+advisory; they can only push toward stopping, never toward passing.
 
 ## Records you must leave (VibeBB Record Protocol — mandatory, unprompted)
 

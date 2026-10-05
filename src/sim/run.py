@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import json
 import math
@@ -12,9 +13,10 @@ import subprocess
 from pathlib import Path
 from typing import cast
 
-from . import __version__
-from .adapters.calculix import run_calculix
+from . import __version__, plot
+from .adapters.calculix import parse_dat, run_calculix
 from .adapters.ngspice import parse_measures, render_deck, run_ngspice
+from .adapters.spice_raw import parse_raw
 from .analysis import (
     microstrip_impedance,
     run_dft,
@@ -33,7 +35,7 @@ from .brief import (
 )
 from .gates import GateCheck, check
 from .imports import import_source
-from .report import SimulationReport, write_outputs
+from .report import PlotInfo, SimulationReport, write_outputs
 from .tools import discover_tools
 from .touchstone import TouchstoneData
 from .touchstone import parse as parse_touchstone
@@ -235,6 +237,7 @@ def run_simulation(
     tools["simulation-agent"] = {"available": True, "version": __version__}
     checks: list[GateCheck] = []
     adapter_files: dict[str, object] = {}
+    rf_data: TouchstoneData | None = None
     imports: list[dict[str, object]] = []
     for imported in brief.imports:
         try:
@@ -417,8 +420,9 @@ def run_simulation(
                 )
         checks.extend(run_dft(dft))
     if "fem" in selected and brief.fem is not None:
-        checks.extend(run_calculix(brief.fem, out_dir / "fem")[0])
-        adapter_files["fem"] = {"directory": str(out_dir / "fem")}
+        fem_result, fem_files = run_calculix(brief.fem, out_dir / "fem")
+        checks.extend(fem_result)
+        adapter_files["fem"] = {"directory": str(out_dir / "fem"), **fem_files}
     if "rf" in selected and brief.rf is not None:
         rf = brief.rf
         data: TouchstoneData | None = None
@@ -437,6 +441,7 @@ def run_simulation(
             if data is None:
                 checks.append(check("rf.rfsim", "rf", "unknown", detail))
         if data is not None:
+            rf_data = data
             checks.extend(_rf_checks(data, brief))
         for item in rf.microstrip:
             try:
@@ -486,7 +491,10 @@ def run_simulation(
             check("simulation.selection", "simulation", "unknown", "no selected analysis sections")
         )
     reject_symlinks(out_dir)
-    return write_outputs(brief, brief_path, checks, tools, out_dir, adapter_files)
+    plots, plot_errors = _write_plots(brief, checks, out_dir, workspace, rf_data)
+    return write_outputs(
+        brief, brief_path, checks, tools, out_dir, adapter_files, plots, plot_errors
+    )
 
 
 def _run_spice_wca(brief: SimulationBrief, workspace: Path, out_dir: Path) -> list[GateCheck]:
@@ -655,3 +663,250 @@ def _run_spice_wca(brief: SimulationBrief, workspace: Path, out_dir: Path) -> li
                 )
             )
     return checks
+
+
+_MEASURE_VECTOR = re.compile(r"(?:vm|v)\(([^)]+)\)", re.IGNORECASE)
+
+
+def _plot_entry(path: Path, workspace: Path, analysis: str, title: str, checklist: str) -> PlotInfo:
+    return {
+        "path": path.relative_to(workspace).as_posix(),
+        "analysis": analysis,
+        "title": title,
+        "checklist": checklist,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
+def _summary_items(checks: list[GateCheck]) -> list[tuple[str, dict[str, int]]]:
+    counts: dict[str, dict[str, int]] = {}
+    for item in checks:
+        bucket = counts.setdefault(item.analysis, {"pass": 0, "fail": 0, "unknown": 0})
+        bucket[item.verdict] += 1
+    return sorted(counts.items())
+
+
+def _margin_plots(checks: list[GateCheck]) -> dict[str, bytes]:
+    grouped: dict[str, list[GateCheck]] = {}
+    for item in checks:
+        grouped.setdefault(item.analysis, []).append(item)
+    rendered: dict[str, bytes] = {}
+    for analysis, items in sorted(grouped.items()):
+        rows: list[tuple[str, str, float, float | None, float | None]] = []
+        skipped = 0
+        for item in items:
+            window = plot.parse_limit(item.limit) if item.limit is not None else None
+            if item.measured is None or window is None:
+                skipped += 1
+                continue
+            rows.append((item.id, item.verdict, item.measured, window[0], window[1]))
+        if not rows:
+            continue
+        rendered[analysis] = plot.margin_chart(
+            rows, title=f"Margins: {analysis}", not_plotted=skipped
+        )
+    return rendered
+
+
+def _spice_plots(
+    brief: SimulationBrief, checks: list[GateCheck], out_dir: Path
+) -> list[tuple[str, str, bytes]]:
+    raw_path = out_dir / "spice" / "raw.bin"
+    if not raw_path.is_file():
+        raise ValueError("ngspice raw file is missing")
+    blocks = parse_raw(raw_path)
+    rendered: list[tuple[str, str, bytes]] = []
+    for block in blocks:
+        wanted: list[str] = []
+        if brief.spice is not None:
+            names = {
+                f"v({name})".lower()
+                for measure in brief.spice.deck.measures
+                for name in _MEASURE_VECTOR.findall(measure.statement)
+            }
+            wanted = [v for v in block.variables if v.lower() in names]
+        if not wanted:
+            wanted = [v for v in block.variables[1:] if v.lower().startswith("v(")][:6]
+        if not wanted:
+            continue
+        scale = block.data[0]
+        xs = [float(v.real if isinstance(v, complex) else v) for v in scale]
+        is_ac = "ac" in block.plotname.lower()
+        series: list[tuple[str, list[float], list[float]]] = []
+        for name in wanted:
+            column = block.data[block.variables.index(name)]
+            if block.complex_values or is_ac:
+                ys = [20 * math.log10(max(abs(v), 1e-300)) for v in cast(list[complex], column)]
+                label = f"{name} dB"
+            else:
+                ys = [float(v.real if isinstance(v, complex) else v) for v in column]
+                label = name
+            series.append((label, xs, ys))
+        hlines: list[tuple[float, str]] = []
+        for item in checks:
+            if item.analysis != "spice" or item.measured is None:
+                continue
+            value = 20 * math.log10(max(abs(item.measured), 1e-300)) if is_ac else item.measured
+            hlines.append((value, item.id))
+        slug = re.sub(r"[^a-z0-9]+", "-", block.plotname.lower()).strip("-") or "plot"
+        png = plot.line_chart(
+            series,
+            title=f"SPICE {block.plotname}",
+            xlabel="frequency (Hz)" if is_ac else block.scale_name,
+            ylabel="magnitude (dB)" if is_ac else "value",
+            log_x=is_ac,
+            hlines=hlines,
+        )
+        rendered.append((f"spice-{slug}.png", f"SPICE {block.plotname}", png))
+    return rendered
+
+
+def _rf_plot(data: TouchstoneData | None, brief: SimulationBrief) -> bytes | None:
+    rf = brief.rf
+    if data is None or rf is None or not data.samples:
+        return None
+    xs = [sample.frequency_hz for sample in data.samples]
+    series: list[tuple[str, list[float], list[float]]] = [
+        (
+            "|S11| dB",
+            xs,
+            [20 * math.log10(max(abs(s.matrix[0][0]), 1e-300)) for s in data.samples],
+        )
+    ]
+    if data.ports >= 2:
+        series.append(
+            (
+                "|S21| dB",
+                xs,
+                [20 * math.log10(max(abs(s.matrix[1][0]), 1e-300)) for s in data.samples],
+            )
+        )
+    vspans = [(b.f_min_hz, b.f_max_hz, b.name) for b in rf.bands]
+    hlines = [
+        (value, label)
+        for band in rf.bands
+        for value, label in (
+            [(band.s11_max_db, f"s11_max_db {band.name}")] if band.s11_max_db is not None else []
+        )
+        + ([(band.s21_min_db, f"s21_min_db {band.name}")] if band.s21_min_db is not None else [])
+    ]
+    return plot.line_chart(
+        series,
+        title="RF S-parameters",
+        xlabel="frequency (Hz)",
+        ylabel="dB",
+        vspans=vspans,
+        hlines=hlines,
+    )
+
+
+def _dft_plot(brief: SimulationBrief) -> bytes | None:
+    dft = brief.dft
+    if dft is None or not dft.test_points:
+        return None
+    points = [(p.x_mm, p.y_mm, p.ref, p.side == "top") for p in dft.test_points]
+    radius = dft.min_pitch_mm / 2
+    circles = [(p.x_mm, p.y_mm, radius) for p in dft.test_points]
+    links: list[tuple[float, float, float, float]] = []
+    for index, first in enumerate(dft.test_points):
+        for second in dft.test_points[index + 1 :]:
+            if math.hypot(first.x_mm - second.x_mm, first.y_mm - second.y_mm) < dft.min_pitch_mm:
+                links.append((first.x_mm, first.y_mm, second.x_mm, second.y_mm))
+    return plot.scatter_board(points, links=links, circles=circles, title="DFT test-point plan")
+
+
+def _fem_plot(brief: SimulationBrief, out_dir: Path) -> bytes | None:
+    fem = brief.fem
+    if fem is None:
+        return None
+    geometry = fem.geometry
+    length = geometry.length_mm
+    inertia_mm4 = geometry.width_mm * geometry.height_mm**3 / 12
+    analytic_tip = fem.load.force_n * length**3 / (3 * fem.material.youngs_mpa * inertia_mm4)
+    tip = None
+    dat_path = out_dir / "fem" / "simulation.dat"
+    if dat_path.is_file():
+        _max_defl, tip, _stress = parse_dat(dat_path.read_text(encoding="utf-8", errors="replace"))
+    source = "CalculiX"
+    if tip is None:
+        tip = analytic_tip
+        source = "analytic"
+    xs = [length * index / 200 for index in range(201)]
+    ys = [tip * x**2 * (3 * length - x) / (2 * length**3) for x in xs]
+    hlines: list[tuple[float, str]] = (
+        [(fem.limits.max_deflection_mm, "max_deflection_mm")]
+        if fem.limits.max_deflection_mm is not None
+        else []
+    )
+    return plot.line_chart(
+        [(f"cantilever deflection ({source} tip)", xs, ys)],
+        title="FEM cantilever deflection",
+        xlabel="x (mm)",
+        ylabel="deflection (mm)",
+        hlines=hlines,
+    )
+
+
+def _write_plots(
+    brief: SimulationBrief,
+    checks: list[GateCheck],
+    out_dir: Path,
+    workspace: Path,
+    rf_data: TouchstoneData | None,
+) -> tuple[list[PlotInfo], list[str]]:
+    """Write advisory PNG plots under out/<name>/plots; failures never raise."""
+    plots_dir = out_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    plots: list[PlotInfo] = []
+    errors: list[str] = []
+
+    def emit(filename: str, analysis: str, title: str, checklist: str, png: bytes) -> None:
+        target = plots_dir / filename
+        target.write_bytes(png)
+        plots.append(_plot_entry(target, workspace, analysis, title, checklist))
+
+    verdict = (
+        "fail"
+        if any(item.verdict == "fail" for item in checks)
+        else ("unknown" if any(item.verdict == "unknown" for item in checks) else "pass")
+    )
+    try:
+        title = f"Check verdicts per analysis (overall: {verdict})"
+        emit(
+            "summary.png",
+            "summary",
+            title,
+            "sim-summary",
+            plot.stacked_bar_chart(_summary_items(checks), title=title),
+        )
+    except (OSError, ValueError, ArithmeticError) as exc:
+        errors.append(f"summary: {exc}")
+    try:
+        for analysis, png in _margin_plots(checks).items():
+            slug = re.sub(r"[^A-Za-z0-9_-]+", "-", analysis)
+            emit(
+                f"margin-{slug}.png",
+                analysis,
+                f"Margins: {analysis}",
+                "margin-chart",
+                png,
+            )
+    except (OSError, ValueError, ArithmeticError) as exc:
+        errors.append(f"margin: {exc}")
+    try:
+        for filename, title, png in _spice_plots(brief, checks, out_dir):
+            emit(filename, "spice", title, "spice-waveform", png)
+    except (OSError, ValueError, ArithmeticError) as exc:
+        errors.append(f"spice: {exc}")
+    for filename, checklist, builder in (
+        ("rf-sparams.png", "rf-sparams", lambda: _rf_plot(rf_data, brief)),
+        ("dft-testpoints.png", "dft-testpoints", lambda: _dft_plot(brief)),
+        ("fem-deflection.png", "fem-deflection", lambda: _fem_plot(brief, out_dir)),
+    ):
+        try:
+            png = builder()
+            if png is not None:
+                emit(filename, checklist, filename.removesuffix(".png"), checklist, png)
+        except (OSError, ValueError, ArithmeticError) as exc:
+            errors.append(f"{checklist}: {exc}")
+    return plots, errors

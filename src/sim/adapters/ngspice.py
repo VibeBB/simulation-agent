@@ -195,8 +195,22 @@ def run_ngspice(
         return [check("spice.output", "spice", "unknown", f"unsafe output directory: {exc}")], {}
     deck_path = out_dir / "deck.cir"
     log_path = out_dir / "run.log"
+    raw_path = out_dir / "raw.bin"
     try:
-        deck_path.write_text(render_deck(deck, workspace), encoding="utf-8")
+        deck_text = render_deck(deck, workspace)
+        if ".control" not in deck_text.lower():
+            # ngspice batch mode cannot run .meas together with -r rawfile,
+            # so write the raw file from an appended control block instead.
+            control = f".control\nset filetype=binary\nrun\nwrite {raw_path.name}\nquit\n.endc\n"
+            lines = deck_text.splitlines(keepends=True)
+            for index in range(len(lines) - 1, -1, -1):
+                if lines[index].strip().lower() == ".end":
+                    lines.insert(index, control)
+                    break
+            else:
+                lines.append(control)
+            deck_text = "".join(lines)
+        deck_path.write_text(deck_text, encoding="utf-8")
     except (OSError, ValueError) as exc:
         return [check("spice.deck", "spice", "unknown", str(exc))], {}
     binary = os.environ.get("SIM_NGSPICE", "ngspice")
@@ -238,5 +252,6 @@ def run_ngspice(
     return parse_measures(log, deck, result.returncode), {
         "deck": str(deck_path),
         "log": str(log_path),
+        "raw": str(raw_path) if raw_path.is_file() else None,
         "returncode": result.returncode,
     }

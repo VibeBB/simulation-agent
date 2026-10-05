@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import json
+from pathlib import Path
 from typing import cast
 
 from mcp import types
@@ -86,6 +89,10 @@ DESCRIPTIONS = {
     "sim_records_status": (
         "Report record counts per log and the last Stop-hook verdict. Writes nothing."
     ),
+    "sim_plots": (
+        "Return inline PNG plots from an existing out/<name>/sim-report.json, "
+        "verifying each sha256. Read-only; writes nothing."
+    ),
 }
 for _analysis in ANALYSES:
     DESCRIPTIONS[f"sim_{_analysis}"] = (
@@ -132,6 +139,12 @@ def tool_specs() -> list[types.Tool]:
             "additionalProperties": False,
         },
         "sim_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+        "sim_plots": {
+            "type": "object",
+            "properties": {"out_dir": {"type": "string"}},
+            "required": ["out_dir"],
+            "additionalProperties": False,
+        },
         "sim_record_decision": DecisionInput.model_json_schema(),
         "sim_record_impression": StageImpressionInput.model_json_schema(),
         "sim_record_vision_review": VisionReviewInput.model_json_schema(),
@@ -239,6 +252,13 @@ def dispatch_tool(name: str, arguments: dict[str, object]) -> dict[str, object]:
         return RECORDERS_MCP[name](arguments, root)
     if name == "sim_records_status":
         return records_summary(root)
+    if name == "sim_plots":
+        out_dir = workspace_path(_string_argument(arguments, "out_dir"), root)
+        report_path = out_dir / "sim-report.json"
+        if not report_path.is_file():
+            raise ValueError(f"no sim-report.json under {out_dir}")
+        report = cast(dict[str, object], json.loads(report_path.read_text(encoding="utf-8")))
+        return {"plots": report.get("plots", []), "plot_errors": report.get("plot_errors", [])}
     if name == "sim_respond":
         request_path = workspace_path(_string_argument(arguments, "request"), root)
         request = load_request(request_path)
@@ -310,20 +330,81 @@ def dispatch_tool(name: str, arguments: dict[str, object]) -> dict[str, object]:
     raise ValueError(f"unknown tool {name!r}")
 
 
+IMAGE_TOOLS = {
+    "sim_run",
+    "sim_gates",
+    "sim_respond",
+    "sim_plots",
+    *(f"sim_{analysis}" for analysis in ANALYSES),
+}
+MAX_PLOT_IMAGES = 8
+
+
+def _payload_images(
+    payload: dict[str, object], root: Path
+) -> tuple[list[types.ImageContent], list[str], int]:
+    """Load up to MAX_PLOT_IMAGES verified PNGs referenced by payload['plots']."""
+    plots = payload.get("plots")
+    images: list[types.ImageContent] = []
+    mismatches: list[str] = []
+    loaded = 0
+    if not isinstance(plots, list):
+        return images, mismatches, 0
+    for item in cast(list[object], plots):
+        if not isinstance(item, dict):
+            continue
+        entry = cast(dict[str, object], item)
+        rel = entry.get("path")
+        expected = entry.get("sha256")
+        if not isinstance(rel, str) or not isinstance(expected, str):
+            continue
+        try:
+            path = workspace_path(rel, root)
+        except ValueError:
+            mismatches.append(rel)
+            continue
+        if not path.is_file() or path.suffix != ".png":
+            mismatches.append(rel)
+            continue
+        blob = path.read_bytes()
+        if hashlib.sha256(blob).hexdigest() != expected:
+            mismatches.append(rel)
+            continue
+        loaded += 1
+        if len(images) < MAX_PLOT_IMAGES:
+            images.append(
+                types.ImageContent(
+                    type="image",
+                    data=base64.b64encode(blob).decode("ascii"),
+                    mimeType="image/png",
+                )
+            )
+    return images, mismatches, max(0, loaded - MAX_PLOT_IMAGES)
+
+
 @server.call_tool()
 async def call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
     is_error = False
+    payload: dict[str, object]
     try:
         payload = dispatch_tool(name, arguments)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         payload = {"verdict": "fail", "detail": str(exc)}
         is_error = True
+    images: list[types.ImageContent] = []
+    if not is_error and name in IMAGE_TOOLS:
+        images, mismatches, omitted = _payload_images(payload, workspace_root())
+        if mismatches:
+            payload["plot_hash_mismatches"] = mismatches
+        if omitted:
+            payload["plots_omitted"] = omitted
     return types.CallToolResult(
         content=[
             types.TextContent(
                 type="text",
                 text=json.dumps(payload, indent=2, sort_keys=True),
-            )
+            ),
+            *images,
         ],
         isError=is_error,
     )
