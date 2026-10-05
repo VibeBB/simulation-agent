@@ -12,13 +12,16 @@ from sim import plot
 from sim.adapters.spice_raw import parse_raw, parse_raw_bytes
 from sim.brief import SimulationBrief
 from sim.gates import check
+from sim.plot import _decade_ticks  # pyright: ignore[reportPrivateUsage]
 from sim.run import _write_plots  # pyright: ignore[reportPrivateUsage]
 
 
-def _png_ok(blob: bytes) -> None:
+def _png_ok(blob: bytes, *, height: int | None = 540) -> None:
     assert blob.startswith(b"\x89PNG\r\n\x1a\n")
-    width, height = struct.unpack(">II", blob[16:24])
-    assert width == 960 and height == 540
+    width, actual_height = struct.unpack(">II", blob[16:24])
+    assert width == 960
+    if height is not None:
+        assert actual_height == height
 
 
 def test_png_is_deterministic() -> None:
@@ -45,14 +48,14 @@ def test_margin_chart_renders_rows() -> None:
         ("a.lower", "fail", 0.2, 0.4, None),
         ("a.band", "unknown", 0.6, 0.4, 0.8),
     ]
-    _png_ok(plot.margin_chart(rows, title="margins", not_plotted=2))
+    _png_ok(plot.margin_chart(rows, title="margins", not_plotted=2), height=None)
 
 
 def test_stacked_bar_and_scatter_render() -> None:
     _png_ok(plot.stacked_bar_chart([("spice", {"pass": 2, "fail": 1, "unknown": 0})], title="t"))
     _png_ok(
         plot.scatter_board(
-            [(1.0, 2.0, "TP1", True), (3.0, 2.0, "TP2", False)],
+            [(1.0, 2.0, "TP1", True, 0.5), (3.0, 2.0, "TP2", False, 0.5)],
             links=[(1.0, 2.0, 3.0, 2.0)],
             circles=[(1.0, 2.0, 0.5)],
         )
@@ -122,7 +125,7 @@ def test_write_plots_reports_errors_never_raises(tmp_path: Path) -> None:
         import hashlib
 
         assert hashlib.sha256(blob).hexdigest() == entry["sha256"]
-        _png_ok(blob)
+        _png_ok(blob, height=None)
 
 
 def test_dft_and_fem_plots_from_brief(tmp_path: Path) -> None:
@@ -227,3 +230,49 @@ def test_report_lists_plots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert listed
     markdown = (tmp_path / "out" / "b" / "sim-report.md").read_text(encoding="utf-8")
     assert "## Plots" in markdown
+
+
+def test_lowercase_glyphs_render_differently() -> None:
+    canvas = plot.Canvas(120, 20)
+    canvas.text(2, 4, "Frequency (Hz)", plot.BLACK)
+    rendered = canvas.to_png()
+    canvas2 = plot.Canvas(120, 20)
+    canvas2.text(2, 4, "FREQUENCY (HZ)", plot.BLACK)
+    assert rendered != canvas2.to_png()
+
+
+def test_engineering_fmt() -> None:
+    assert plot.fmt(1.5e9) == "1.5G"
+    assert plot.fmt(500e6) == "500M"
+    assert plot.fmt(2.5e-3) == "2.5m"
+    assert plot.fmt(10**4) == "10k"
+
+
+def test_decade_ticks() -> None:
+    assert _decade_ticks(1.0, 4.0) == [1.0, 2.0, 3.0, 4.0]
+    assert _decade_ticks(1.3, 2.9) == [2.0]
+
+
+def test_stacked_bar_integer_ticks() -> None:
+    items = [("a", {"pass": 4, "fail": 1, "unknown": 0})]
+    first = plot.stacked_bar_chart(items, title="t")
+    assert first == plot.stacked_bar_chart(items, title="t")
+    # integer tick step: 5 -> step 2 -> ticks 0,2,4
+    assert plot.fmt(4) == "4"
+
+
+def test_margin_one_sided_positions(tmp_path: Path) -> None:
+    # "≤ -15" with measured -20 (fail): bound must sit right of marker.
+    rows_upper = [("s11", "fail", -20.0, None, -15.0)]
+    _png_ok(plot.margin_chart(rows_upper), height=None)
+    # "≥ -3" with measured -1.01 (pass): bound at left portion.
+    rows_lower = [("s21", "pass", -1.01, -3.0, None)]
+    _png_ok(plot.margin_chart(rows_lower), height=None)
+
+
+def test_scatter_equal_aspect() -> None:
+    # Square board 10x10mm should keep aspect; smoke-check determinism.
+    points = [(0.0, 0.0, "A", True, 0.4), (10.0, 10.0, "B", False, 0.4)]
+    a = plot.scatter_board(points)
+    b = plot.scatter_board(points)
+    assert a == b

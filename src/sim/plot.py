@@ -5,8 +5,8 @@ no randomness, no locale-sensitive formatting. Plots are advisory evidence
 for vision review; they never change a gate verdict.
 
 The PNG writer emits 8-bit RGB with filter 0 scanlines (IHDR/IDAT/IEND).
-The embedded 5x7 bitmap font covers printable ASCII 32-126 (lowercase
-letters share the uppercase shapes); anything else renders as '?'.
+The embedded 5x7 bitmap font covers printable ASCII 32-126; anything
+else renders as '?'.
 """
 
 from __future__ import annotations
@@ -102,6 +102,32 @@ _GLYPHS: Final[dict[str, tuple[str, ...]]] = {
     "X": ("#   #", "#   #", " # # ", "  #  ", " # # ", "#   #", "#   #"),
     "Y": ("#   #", "#   #", " # # ", "  #  ", "  #  ", "  #  ", "  #  "),
     "Z": ("#####", "    #", "   # ", "  #  ", " #   ", "#    ", "#####"),
+    "a": ("     ", "     ", " ### ", "    #", " ####", "#  ##", " ## #"),
+    "b": ("#    ", "#    ", "# ## ", "##  #", "#   #", "#   #", "#### "),
+    "c": ("     ", "     ", " ### ", "#   #", "#    ", "#   #", " ### "),
+    "d": ("    #", "    #", " ## #", "#  ##", "#   #", "#   #", " ####"),
+    "e": ("     ", "     ", " ### ", "#   #", "#####", "#    ", " ### "),
+    "f": ("  ###", " #   ", "#####", " #   ", " #   ", " #   ", " #   "),
+    "g": ("     ", "     ", " ####", "#   #", "#   #", " ####", " ### "),
+    "h": ("#    ", "#    ", "# ## ", "##  #", "#   #", "#   #", "#   #"),
+    "i": ("  #  ", "     ", " ##  ", "  #  ", "  #  ", "  #  ", " ### "),
+    "j": ("   # ", "     ", "  ## ", "   # ", "   # ", "#  # ", " ##  "),
+    "k": ("#    ", "#    ", "#  # ", "# #  ", "##   ", "# #  ", "#  # "),
+    "l": (" ##  ", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", " ### "),
+    "m": ("     ", "     ", "## # ", "# # #", "# # #", "# # #", "# # #"),
+    "n": ("     ", "     ", "# ## ", "##  #", "#   #", "#   #", "#   #"),
+    "o": ("     ", "     ", " ### ", "#   #", "#   #", "#   #", " ### "),
+    "p": ("     ", "     ", "#### ", "#   #", "#   #", "#### ", "#    "),
+    "q": ("     ", "     ", " ####", "#   #", "#   #", " ####", "    #"),
+    "r": ("     ", "     ", "# ## ", "##  #", "#    ", "#    ", "#    "),
+    "s": ("     ", "     ", " ####", "#    ", " ### ", "    #", "#### "),
+    "t": ("  #  ", "  #  ", "#####", "  #  ", "  #  ", "  #  ", "   ##"),
+    "u": ("     ", "     ", "#   #", "#   #", "#   #", "#  ##", " ## #"),
+    "v": ("     ", "     ", "#   #", "#   #", "#   #", " # # ", "  #  "),
+    "w": ("     ", "     ", "#   #", "#   #", "# # #", "# # #", " # # "),
+    "x": ("     ", "     ", "#   #", " # # ", "  #  ", " # # ", "#   #"),
+    "y": ("     ", "     ", "#   #", "#   #", " ####", "   # ", "##   "),
+    "z": ("     ", "     ", "#####", "   # ", "  #  ", " #   ", "#####"),
     "[": (" ### ", " #   ", " #   ", " #   ", " #   ", " #   ", " ### "),
     "\\": ("#    ", "#    ", " #   ", "  #  ", "   # ", "    #", "    #"),
     "]": (" ### ", "   # ", "   # ", "   # ", "   # ", "   # ", " ### "),
@@ -116,14 +142,33 @@ _GLYPHS: Final[dict[str, tuple[str, ...]]] = {
 
 
 def _glyph(char: str) -> tuple[str, ...]:
-    glyph = _GLYPHS.get(char) or _GLYPHS.get(char.upper()) or _GLYPHS["?"]
+    glyph = _GLYPHS.get(char) or _GLYPHS["?"]
     return glyph
 
 
+_SI_SUFFIXES: Final[tuple[tuple[float, str], ...]] = (
+    (1e12, "T"),
+    (1e9, "G"),
+    (1e6, "M"),
+    (1e3, "k"),
+    (1.0, ""),
+    (1e-3, "m"),
+    (1e-6, "u"),
+    (1e-9, "n"),
+    (1e-12, "p"),
+)
+
+
 def fmt(value: float) -> str:
-    """Tick-label number with three significant digits."""
+    """Tick-label number: three significant digits, engineering suffix."""
     if not math.isfinite(value):
         return "?"
+    if value == 0:
+        return "0"
+    magnitude = abs(value)
+    for scale, suffix in _SI_SUFFIXES:
+        if magnitude >= scale or suffix == "p":
+            return f"{value / scale:.3g}{suffix}"
     return f"{value:.3g}"
 
 
@@ -241,6 +286,21 @@ def _nice_ticks(low: float, high: float, count: int = 6) -> list[float]:
     return [low + index * step for index in range(count)]
 
 
+def _decade_ticks(low: float, high: float) -> list[float]:
+    """Log-domain tick positions: one per decade inside [low, high]."""
+    first = math.ceil(low - 1e-9)
+    last = math.floor(high + 1e-9)
+    if last < first:
+        return [low, high] if high > low else [low]
+    return [float(exponent) for exponent in range(first, last + 1)]
+
+
+def _clamp_label_x(canvas: Canvas, center: int, value: str) -> int:
+    """Center a tick label on ``center`` without clipping the canvas edge."""
+    width = canvas.text_width(value)
+    return min(max(center - width // 2, 2), canvas.width - 2 - width)
+
+
 def line_chart(
     series: Sequence[tuple[str, Sequence[float], Sequence[float]]],
     *,
@@ -250,10 +310,16 @@ def line_chart(
     log_x: bool = False,
     hlines: Sequence[tuple[float, str]] = (),
     vspans: Sequence[tuple[float, float, str]] = (),
+    markers: Sequence[tuple[float, float, str]] = (),
+    note: str = "",
     width: int = 960,
     height: int = 540,
 ) -> bytes:
-    """Line chart; AC-style plots pass log_x=True for the frequency axis."""
+    """Line chart; AC-style plots pass log_x=True for the frequency axis.
+
+    ``markers`` are (raw x, y, label) points drawn as filled circles; the x
+    value is in data units (log_x transforms it).
+    """
     canvas = Canvas(width, height)
     left, right, top, bottom = 90, width - 20, 46, height - 60
     drawn: list[tuple[str, list[float], list[float]]] = []
@@ -300,13 +366,16 @@ def line_chart(
         b = px(math.log10(max(hi, 1e-300)) if log_x else hi)
         canvas.fill_rect(min(a, b), top, max(a, b), bottom, LIGHT_GRAY)
         canvas.text(min(a, b) + 2, top + 2, label, GRAY)
-    for tick in _nice_ticks(x_min, x_max):
+    x_ticks = _decade_ticks(x_min, x_max) if log_x else _nice_ticks(x_min, x_max)
+    for tick in x_ticks:
+        label = fmt(10**tick) if log_x else fmt(tick)
         canvas.line(px(tick), bottom, px(tick), bottom + 4, BLACK)
-        canvas.text(px(tick) - 10, bottom + 8, fmt(tick), BLACK)
+        canvas.text(_clamp_label_x(canvas, px(tick), label), bottom + 8, label, BLACK)
         canvas.line(px(tick), top, px(tick), bottom, LIGHT_GRAY)
     for tick in _nice_ticks(y_min, y_max):
+        label = fmt(tick)
         canvas.line(left - 4, py(tick), left, py(tick), BLACK)
-        canvas.text(8, py(tick) - 3, fmt(tick), BLACK)
+        canvas.text(max(2, left - 8 - canvas.text_width(label)), py(tick) - 3, label, BLACK)
         canvas.line(left, py(tick), right, py(tick), LIGHT_GRAY)
     canvas.line(left, top, left, bottom, BLACK)
     canvas.line(left, bottom, right, bottom, BLACK)
@@ -320,12 +389,19 @@ def line_chart(
     for value, label in hlines:
         canvas.line(left, py(value), right, py(value), GRAY, 2)
         canvas.text(left + 4, py(value) - 10, label, GRAY)
+    for x_value, y_value, label in markers:
+        mx = px(math.log10(max(x_value, 1e-300)) if log_x else x_value)
+        my = py(y_value)
+        canvas.circle(mx, my, 4, BLACK)
+        canvas.text(_clamp_label_x(canvas, mx, label), max(top + 2, my - 14), label, BLACK)
     if xlabel:
         canvas.text((left + right) // 2 - canvas.text_width(xlabel) // 2, height - 18, xlabel)
     if ylabel:
         canvas.text(10, top - 14, ylabel)
     if title:
         canvas.text(10, 8, title, BLACK, 2)
+    if note:
+        canvas.text(10, 26, note, GRAY)
     return canvas.to_png()
 
 
@@ -363,48 +439,65 @@ def margin_chart(
     title: str = "",
     not_plotted: int = 0,
     width: int = 960,
-    height: int = 540,
 ) -> bytes:
-    """One row per check: allowed window band plus a verdict-colored marker.
+    """One row per check: allowed window plus a verdict-colored marker.
 
-    ``rows`` items are (check_id, verdict, measured, low, high); the window
-    normalizes lower bound to 0 and upper bound to 1. A one-sided upper
-    bound shows 0..limit, a one-sided lower bound shows limit..2*limit with
-    the bound line at the left edge.
+    ``rows`` items are (check_id, verdict, measured, low, high). A two-sided
+    window maps the lower bound to 25% and the upper bound to 75% of the bar
+    so out-of-window values stay visible (clamped at the edges with "<"/">").
+    A one-sided bound L shows a window of ±1.5/0.5 decades of margin where
+    d = max(|L|, 1.1*|m-L|, 1e-12), with the allowed side shaded.
     """
+    height = max(200, 66 + len(rows) * 28 + (20 if not_plotted else 6))
     canvas = Canvas(width, height)
-    left, right, top = 260, width - 120, 50
-    row_height = 26
+    left, right, top = 260, width - 190, 46
+    row_height = 28
     for index, (check_id, verdict, measured, low, high) in enumerate(rows):
         y = top + index * row_height
-        canvas.text(8, y + 6, check_id[:38], BLACK)
+        canvas.text(8, y + 8, check_id[:40], BLACK)
         if low is not None and high is not None:
-            span_low, span_high, bound = low, high, "both"
+            span_low, span_high = low - (high - low) / 2, high + (high - low) / 2
+            window = (low, high)
+            limit_text = f"{fmt(low)} to {fmt(high)}"
         elif high is not None:
-            span_low, span_high, bound = 0.0, high, "upper"
+            d = max(abs(high), 1.1 * abs(measured - high), 1e-12)
+            span_low, span_high = high - 1.5 * d, high + 0.5 * d
+            window = (None, high)
+            limit_text = f"<= {fmt(high)}"
         elif low is not None:
-            span_low, span_high, bound = low, 2 * low if low != 0 else 1.0, "lower"
+            d = max(abs(low), 1.1 * abs(measured - low), 1e-12)
+            span_low, span_high = low - 0.5 * d, low + 1.5 * d
+            window = (low, None)
+            limit_text = f">= {fmt(low)}"
         else:
             continue
 
         def px(value: float, lo: float = span_low, hi: float = span_high) -> int:
             return left + int((value - lo) / (hi - lo) * (right - left))
 
-        canvas.fill_rect(left, y + 4, right, y + 18, BAND_GREEN)
-        canvas.rect(left, y + 4, right, y + 18, GRAY)
-        if bound == "upper":
-            assert high is not None
-            canvas.line(px(high), y + 2, px(high), y + 20, FAIL_RED, 2)
-        elif bound == "lower":
-            assert low is not None
-            canvas.line(px(low), y + 2, px(low), y + 20, FAIL_RED, 2)
-        else:
-            assert low is not None and high is not None
-            canvas.line(px(low), y + 2, px(low), y + 20, GRAY, 1)
-            canvas.line(px(high), y + 2, px(high), y + 20, GRAY, 1)
+        canvas.rect(left, y + 4, right, y + 20, GRAY)
+        win_lo, win_hi = window
+        if win_lo is not None and win_hi is not None:
+            lo_x, hi_x = px(win_lo), px(win_hi)
+            canvas.fill_rect(lo_x, y + 4, hi_x, y + 20, BAND_GREEN)
+            canvas.line(lo_x, y + 2, lo_x, y + 22, GRAY, 1)
+            canvas.line(hi_x, y + 2, hi_x, y + 22, GRAY, 1)
+        elif win_hi is not None:
+            bound = px(win_hi)
+            canvas.fill_rect(left, y + 4, bound, y + 20, BAND_GREEN)
+            canvas.line(bound, y + 2, bound, y + 22, FAIL_RED, 2)
+        elif win_lo is not None:
+            bound = px(win_lo)
+            canvas.fill_rect(bound, y + 4, right, y + 20, BAND_GREEN)
+            canvas.line(bound, y + 2, bound, y + 22, FAIL_RED, 2)
         clipped = min(max(measured, span_low), span_high)
-        canvas.circle(px(clipped), y + 11, 5, VERDICT_COLORS.get(verdict, UNKNOWN_GRAY))
-        canvas.text(right + 8, y + 6, f"{fmt(measured)} [{verdict}]", BLACK)
+        canvas.circle(px(clipped), y + 12, 5, VERDICT_COLORS.get(verdict, UNKNOWN_GRAY))
+        if measured < span_low:
+            canvas.text(left - 12, y + 6, "<", BLACK)
+        elif measured > span_high:
+            canvas.text(right + 4, y + 6, ">", BLACK)
+        label = f"{fmt(measured)}  {limit_text}  [{verdict}]"
+        canvas.text(min(right + 16, width - 2 - canvas.text_width(label)), y + 8, label, BLACK)
     footer = top + len(rows) * row_height + 10
     if not_plotted:
         canvas.text(8, footer, f"{not_plotted} checks not plotted (no numeric limit)", GRAY)
@@ -420,9 +513,9 @@ def stacked_bar_chart(
     width: int = 960,
     height: int = 540,
 ) -> bytes:
-    """Per-analysis stacked pass/fail/unknown bars."""
+    """Per-analysis stacked pass/fail/unknown bars with integer count ticks."""
     canvas = Canvas(width, height)
-    left, right, top, bottom = 80, width - 30, 46, height - 60
+    left, right, top, bottom = 80, width - 30, 56, height - 60
     total_max = max(1, max(sum(counts.values()) for _name, counts in items) if items else 1)
     canvas.line(left, top, left, bottom, BLACK)
     canvas.line(left, bottom, right, bottom, BLACK)
@@ -442,21 +535,25 @@ def stacked_bar_chart(
             if bar_h > 10:
                 canvas.text(x0 + 4, y + 3, str(value), WHITE)
         canvas.text(x0, bottom + 8, name[: max(1, slot // 7)], BLACK)
+    legend_x = width - 10 - 3 * 72
     for index, verdict in enumerate(("pass", "fail", "unknown")):
-        lx = right - 210 + index * 70
-        canvas.fill_rect(lx, top + 2, lx + 8, top + 8, VERDICT_COLORS[verdict])
-        canvas.text(lx + 12, top, verdict, BLACK)
-    for tick in _nice_ticks(0, total_max, 5):
+        lx = legend_x + index * 72
+        canvas.fill_rect(lx, 10, lx + 8, 16, VERDICT_COLORS[verdict])
+        canvas.text(lx + 12, 10, verdict, BLACK)
+    step = max(1, math.ceil(total_max / 4))
+    tick = 0
+    while tick <= total_max:
         y = bottom - int(tick / total_max * (bottom - top))
         canvas.line(left - 4, y, left, y, BLACK)
-        canvas.text(30, y - 3, str(int(tick)), BLACK)
+        canvas.text(left - 8 - canvas.text_width(str(tick)), y - 3, str(tick), BLACK)
+        tick += step
     if title:
         canvas.text(10, 8, title, BLACK, 2)
     return canvas.to_png()
 
 
 def scatter_board(
-    points: Sequence[tuple[float, float, str, bool]],
+    points: Sequence[tuple[float, float, str, bool, float]],
     *,
     links: Sequence[tuple[float, float, float, float]] = (),
     circles: Sequence[tuple[float, float, float]] = (),
@@ -466,53 +563,71 @@ def scatter_board(
     width: int = 960,
     height: int = 540,
 ) -> bytes:
-    """Board plan: filled markers are top side, hollow are bottom side."""
+    """Board plan with equal aspect (1 mm = same px on both axes).
+
+    ``points`` items are (x, y, label, top_side, pad_radius_mm): top pads are
+    filled, bottom pads are rings. ``circles`` are thin outline guides such
+    as the min-pitch radius; ``links`` are red violation connectors.
+    """
     canvas = Canvas(width, height)
-    left, right, top, bottom = 80, width - 30, 46, height - 60
-    xs = [x for x, _y, _label, _filled in points] + [x for x, _y, r in circles for _ in (r,)]
+    left, right, top, bottom = 80, width - 30, 56, height - 60
+    xs = [x for x, _y, _l, _f, _r in points]
     xs += [x0 for x0, _y0, _x1, _y1 in links] + [x1 for _x0, _y0, x1, _y1 in links]
     xs += [x + r for x, _y, r in circles] + [x - r for x, _y, r in circles]
-    ys = [y for _x, y, _label, _filled in points]
+    xs += [x + r for x, _y, _l, _f, r in points] + [x - r for x, _y, _l, _f, r in points]
+    ys = [y for _x, y, _l, _f, _r in points]
     ys += [y0 for _x0, y0, _x1, _y1 in links] + [y1 for _x0, _y0, _x1, y1 in links]
     ys += [y + r for _x, y, r in circles] + [y - r for _x, y, r in circles]
+    ys += [y + r for _x, y, _l, _f, r in points] + [y - r for _x, y, _l, _f, r in points]
     if not xs or not ys:
         canvas.text(left, top, "no data", GRAY)
         return canvas.to_png()
     x_min, x_max = min(xs), max(xs)
     y_min, y_max = min(ys), max(ys)
-    if x_max == x_min:
-        x_max += 1
-    if y_max == y_min:
-        y_max += 1
-    pad_x = (x_max - x_min) * 0.08
-    pad_y = (y_max - y_min) * 0.08
-    x_min, x_max = x_min - pad_x, x_max + pad_x
-    y_min, y_max = y_min - pad_y, y_max + pad_y
+    span_x = max(x_max - x_min, 0.5) * 1.1
+    span_y = max(y_max - y_min, 0.5) * 1.1
+    scale = min((right - left) / span_x, (bottom - top) / span_y)
+    x_center = (x_min + x_max) / 2
+    y_center = (y_min + y_max) / 2
+    mid_x = (left + right) / 2
+    mid_y = (top + bottom) / 2
 
     def px(value: float) -> int:
-        return left + int((value - x_min) / (x_max - x_min) * (right - left))
+        return int(mid_x + (value - x_center) * scale)
 
     def py(value: float) -> int:
-        return bottom - int((value - y_min) / (y_max - y_min) * (bottom - top))
+        return int(mid_y - (value - y_center) * scale)
 
-    for tick in _nice_ticks(x_min, x_max):
+    def rp(radius: float) -> int:
+        return max(2, int(radius * scale))
+
+    view_x0 = x_center - (right - left) / scale / 2
+    view_x1 = x_center + (right - left) / scale / 2
+    view_y0 = y_center - (bottom - top) / scale / 2
+    view_y1 = y_center + (bottom - top) / scale / 2
+    for tick in _nice_ticks(view_x0, view_x1):
         canvas.line(px(tick), bottom, px(tick), bottom + 4, BLACK)
-        canvas.text(px(tick) - 10, bottom + 8, fmt(tick), BLACK)
-    for tick in _nice_ticks(y_min, y_max):
+        label = fmt(tick)
+        canvas.text(_clamp_label_x(canvas, px(tick), label), bottom + 8, label, BLACK)
+    for tick in _nice_ticks(view_y0, view_y1):
         canvas.line(left - 4, py(tick), left, py(tick), BLACK)
-        canvas.text(30, py(tick) - 3, fmt(tick), BLACK)
+        label = fmt(tick)
+        canvas.text(max(2, left - 8 - canvas.text_width(label)), py(tick) - 3, label, BLACK)
     canvas.line(left, top, left, bottom, BLACK)
     canvas.line(left, bottom, right, bottom, BLACK)
     for x, y, radius in circles:
-        r_px = max(2, int(radius / (x_max - x_min) * (right - left)))
-        canvas.circle(px(x), py(y), r_px, LIGHT_GRAY, filled=False)
+        canvas.circle(px(x), py(y), rp(radius), GRAY, filled=False)
     for x0, y0, x1, y1 in links:
         canvas.line(px(x0), py(y0), px(x1), py(y1), FAIL_RED, 2)
-    for x, y, label, filled in points:
-        canvas.circle(px(x), py(y), 5, BLACK, filled=filled)
-        canvas.text(px(x) + 8, py(y) - 4, label, BLACK)
+    for x, y, label, filled, pad_radius in points:
+        canvas.circle(px(x), py(y), rp(pad_radius), BLACK, filled=filled)
+        canvas.text(px(x) + rp(pad_radius) + 4, py(y) - 4, label, BLACK)
+    canvas.circle(width - 150, 13, 5, BLACK, filled=True)
+    canvas.text(width - 140, 10, "top", BLACK)
+    canvas.circle(width - 90, 13, 5, BLACK, filled=False)
+    canvas.text(width - 80, 10, "bottom", BLACK)
     if xlabel:
-        canvas.text((left + right) // 2 - 20, height - 18, xlabel)
+        canvas.text((left + right) // 2 - canvas.text_width(xlabel) // 2, height - 18, xlabel)
     if ylabel:
         canvas.text(10, top - 14, ylabel)
     if title:

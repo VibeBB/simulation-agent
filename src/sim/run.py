@@ -666,6 +666,7 @@ def _run_spice_wca(brief: SimulationBrief, workspace: Path, out_dir: Path) -> li
 
 
 _MEASURE_VECTOR = re.compile(r"(?:vm|v)\(([^)]+)\)", re.IGNORECASE)
+_MEASURE_AT = re.compile(r"\bAT\s*=\s*([0-9.]+(?:[eE][+-]?\d+)?)", re.IGNORECASE)
 
 
 def _plot_entry(path: Path, workspace: Path, analysis: str, title: str, checklist: str) -> PlotInfo:
@@ -743,11 +744,30 @@ def _spice_plots(
                 label = name
             series.append((label, xs, ys))
         hlines: list[tuple[float, str]] = []
-        for item in checks:
-            if item.analysis != "spice" or item.measured is None:
-                continue
-            value = 20 * math.log10(max(abs(item.measured), 1e-300)) if is_ac else item.measured
-            hlines.append((value, item.id))
+        markers: list[tuple[float, float, str]] = []
+
+        def to_unit(value: float, *, ac: bool = is_ac) -> float:
+            return 20 * math.log10(max(abs(value), 1e-300)) if ac else value
+
+        if brief.spice is not None:
+            measured = {
+                item.id.removeprefix("spice."): item.measured
+                for item in checks
+                if item.analysis == "spice" and item.measured is not None
+            }
+            for measure in brief.spice.deck.measures:
+                if measure.min is not None:
+                    hlines.append((to_unit(measure.min), f"{measure.name} min"))
+                if measure.max is not None:
+                    hlines.append((to_unit(measure.max), f"{measure.name} max"))
+                value = measured.get(measure.name)
+                if value is None:
+                    continue
+                at = _MEASURE_AT.search(measure.statement)
+                if at is not None:
+                    markers.append((float(at.group(1)), to_unit(value), measure.name))
+                else:
+                    hlines.append((to_unit(value), measure.name))
         slug = re.sub(r"[^a-z0-9]+", "-", block.plotname.lower()).strip("-") or "plot"
         png = plot.line_chart(
             series,
@@ -756,6 +776,7 @@ def _spice_plots(
             ylabel="magnitude (dB)" if is_ac else "value",
             log_x=is_ac,
             hlines=hlines,
+            markers=markers,
         )
         rendered.append((f"spice-{slug}.png", f"SPICE {block.plotname}", png))
     return rendered
@@ -804,7 +825,9 @@ def _dft_plot(brief: SimulationBrief) -> bytes | None:
     dft = brief.dft
     if dft is None or not dft.test_points:
         return None
-    points = [(p.x_mm, p.y_mm, p.ref, p.side == "top") for p in dft.test_points]
+    points = [
+        (p.x_mm, p.y_mm, p.ref, p.side == "top", p.pad_diameter_mm / 2) for p in dft.test_points
+    ]
     radius = dft.min_pitch_mm / 2
     circles = [(p.x_mm, p.y_mm, radius) for p in dft.test_points]
     links: list[tuple[float, float, float, float]] = []
@@ -838,12 +861,18 @@ def _fem_plot(brief: SimulationBrief, out_dir: Path) -> bytes | None:
         if fem.limits.max_deflection_mm is not None
         else []
     )
+    limit = (
+        f", limit = {plot.fmt(fem.limits.max_deflection_mm)} mm"
+        if fem.limits.max_deflection_mm is not None
+        else ""
+    )
     return plot.line_chart(
         [(f"cantilever deflection ({source} tip)", xs, ys)],
         title="FEM cantilever deflection",
         xlabel="x (mm)",
-        ylabel="deflection (mm)",
+        ylabel="Deflection magnitude (-z), mm",
         hlines=hlines,
+        note=f"tip = {plot.fmt(tip)} mm ({source}){limit}",
     )
 
 
