@@ -41,6 +41,7 @@ EXPECTED_HOOKS = {
         "intake-attachments",
         "ensure-llm-profiles",
         "require-records",
+        "ux-inbox-notice",
     },
     "user_prompt_submit": {"intake-attachments"},
     "pre_tool_use": {"protect-generated", "safety-rail"},

@@ -25,6 +25,12 @@ def _is_protected(value: str, root: Path) -> bool:
         return True
     if lexical.name.endswith(".sim-response.json"):
         return True
+    if (
+        lexical.name.endswith(".ux-response.json")
+        and len(lexical.parts) == 2
+        and lexical.parts[0] == "liaison"
+    ):
+        return True
     if _is_vision_artifact(lexical):
         return True
     try:
@@ -34,6 +40,11 @@ def _is_protected(value: str, root: Path) -> bool:
     return (
         bool(relative.parts and relative.parts[0] == "out")
         or relative.name.endswith(".sim-response.json")
+        or (
+            relative.name.endswith(".ux-response.json")
+            and len(relative.parts) == 2
+            and relative.parts[0] == "liaison"
+        )
         or _is_vision_artifact(relative)
     )
 

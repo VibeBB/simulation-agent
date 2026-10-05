@@ -10,6 +10,8 @@ from typing import NoReturn, cast
 from .brief import load_brief, schema
 from .doctor import run_doctor
 from .imports import write_import_record
+from .liaison import inbox as liaison_inbox
+from .liaison import ux_respond
 from .records import RECORDERS, records_summary
 from .report import sha256_file
 from .requests import load_request
@@ -50,6 +52,9 @@ def _parser() -> argparse.ArgumentParser:
     do_import.add_argument("--brief", required=True)
     respond = subparsers.add_parser("respond")
     respond.add_argument("request")
+    subparsers.add_parser("ux-inbox")
+    ux_respond = subparsers.add_parser("ux-respond")
+    ux_respond.add_argument("--json", required=True)
     record = subparsers.add_parser("record")
     record_sub = record.add_subparsers(dest="record_kind", required=True)
     for kind in ("decision", "impression", "vision-review"):
@@ -135,6 +140,7 @@ def _respond(args: argparse.Namespace, root: Path) -> int:
         status,
         verdict,
         report_path=(out_dir / "sim-report.json") if report is not None else None,
+        brief_path=brief_path,
         reasons=reasons,
     )
     _print(
@@ -208,6 +214,16 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "respond":
             return _respond(args, root)
+        if args.command == "ux-inbox":
+            _print(liaison_inbox(root))
+            return 0
+        if args.command == "ux-respond":
+            payload_path = workspace_path(args.json, root)
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("ux-respond payload must be a JSON object")
+            _print(ux_respond(cast(dict[str, object], payload), root))
+            return 0
         if args.command == "record":
             if args.record_kind == "status":
                 _print(records_summary(root))

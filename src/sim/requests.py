@@ -13,7 +13,9 @@ class SimulationRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     schema_version: Literal[1]
-    from_system: Literal["circuit", "mech", "wire", "bard"]
+    from_system: Literal[
+        "circuit", "mech", "wire", "bard", "firmware", "fpga", "prodeng", "dashboard", "doc", "ux"
+    ]
     request_id: str = Field(min_length=1)
     kind: Literal["spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf", "any"]
     brief_path: str = Field(min_length=1)

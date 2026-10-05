@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .workspace import reject_symlinks
+from .workspace import reject_symlinks, workspace_root
 
 ResponseStatus = Literal["accepted", "rejected", "deferred", "needs_info"]
 
@@ -17,12 +17,15 @@ ResponseStatus = Literal["accepted", "rejected", "deferred", "needs_info"]
 class SimulationResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     request_id: str = Field(min_length=1)
+    request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    brief_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     status: ResponseStatus
     verdict: Literal["pass", "fail", "unknown"] | None = None
     report_path: str | None = None
     sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    decision_refs: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -44,14 +47,31 @@ def write_response(
     status: ResponseStatus,
     verdict: Literal["pass", "fail", "unknown"] | None = None,
     report_path: Path | None = None,
+    brief_path: Path | None = None,
+    decision_refs: list[str] | None = None,
     reasons: list[str] | None = None,
 ) -> Path:
+    if decision_refs:
+        from .liaison import event_ids
+        from .records import records_dir
+
+        valid = event_ids(records_dir(workspace_root()), "decisions.jsonl")
+        for ref in decision_refs:
+            if ref not in valid:
+                raise ValueError(f"decision_ref {ref} is not a decisions.jsonl event_id")
     response = SimulationResponse(
         request_id=request_id,
+        request_sha256=hashlib.sha256(request_path.read_bytes()).hexdigest(),
+        brief_sha256=(
+            hashlib.sha256(brief_path.read_bytes()).hexdigest()
+            if brief_path is not None and brief_path.is_file()
+            else None
+        ),
         status=status,
         verdict=verdict,
         report_path=str(report_path) if report_path else None,
         sha256=hashlib.sha256(report_path.read_bytes()).hexdigest() if report_path else None,
+        decision_refs=decision_refs or [],
         reasons=reasons or [],
     )
     stem = request_path.name.removesuffix(".sim-request.json").removesuffix(".json")

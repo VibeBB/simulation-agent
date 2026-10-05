@@ -19,6 +19,8 @@ from . import __version__
 from .brief import load_brief, schema
 from .doctor import run_doctor
 from .imports import write_import_record
+from .liaison import inbox as liaison_inbox
+from .liaison import ux_respond
 from .records import (
     RECORDERS,
     DecisionInput,
@@ -41,6 +43,7 @@ WRITING_TOOLS = {
     "sim_record_decision",
     "sim_record_impression",
     "sim_record_vision_review",
+    "sim_ux_respond",
     *(f"sim_{analysis}" for analysis in ANALYSES),
 }
 RECORDERS_MCP = {
@@ -93,6 +96,15 @@ DESCRIPTIONS = {
         "Return inline PNG plots from an existing out/<name>/sim-report.json, "
         "verifying each sha256. Read-only; writes nothing."
     ),
+    "sim_ux_inbox": (
+        "List liaison/*.ux-request.json states (new/blocked/answered/stale) plus "
+        "malformed files. Read-only; writes nothing."
+    ),
+    "sim_ux_respond": (
+        "Write liaison/<id>.ux-response.json for a sim-targeted ux-request with a "
+        "deterministic status. 'done' is forbidden without passing gates, "
+        "artifacts, and valid record refs."
+    ),
 }
 for _analysis in ANALYSES:
     DESCRIPTIONS[f"sim_{_analysis}"] = (
@@ -143,6 +155,47 @@ def tool_specs() -> list[types.Tool]:
             "type": "object",
             "properties": {"out_dir": {"type": "string"}},
             "required": ["out_dir"],
+            "additionalProperties": False,
+        },
+        "sim_ux_inbox": {"type": "object", "properties": {}, "additionalProperties": False},
+        "sim_ux_respond": {
+            "type": "object",
+            "properties": {
+                "request": {"type": "string"},
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "accepted",
+                        "in_progress",
+                        "done",
+                        "needs_info",
+                        "rejected",
+                        "deferred",
+                    ],
+                },
+                "reason": {"type": "string"},
+                "questions_for_user": {"type": "array", "items": {"type": "string"}},
+                "reports": {"type": "array", "items": {"type": "string"}},
+                "gate_verdicts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "gate": {"type": "string"},
+                            "verdict": {
+                                "type": "string",
+                                "enum": ["pass", "fail", "unknown"],
+                            },
+                        },
+                        "required": ["gate", "verdict"],
+                        "additionalProperties": False,
+                    },
+                },
+                "artifacts": {"type": "array", "items": {"type": "string"}},
+                "decision_refs": {"type": "array", "items": {"type": "string"}},
+                "impression_refs": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["request", "status"],
             "additionalProperties": False,
         },
         "sim_record_decision": DecisionInput.model_json_schema(),
@@ -252,6 +305,10 @@ def dispatch_tool(name: str, arguments: dict[str, object]) -> dict[str, object]:
         return RECORDERS_MCP[name](arguments, root)
     if name == "sim_records_status":
         return records_summary(root)
+    if name == "sim_ux_inbox":
+        return liaison_inbox(root)
+    if name == "sim_ux_respond":
+        return ux_respond(dict(arguments), root)
     if name == "sim_plots":
         out_dir = workspace_path(_string_argument(arguments, "out_dir"), root)
         report_path = out_dir / "sim-report.json"
@@ -324,6 +381,7 @@ def dispatch_tool(name: str, arguments: dict[str, object]) -> dict[str, object]:
             status,
             verdict,
             out_dir / "sim-report.json",
+            brief_path,
             [] if status != "needs_info" else ["analysis verdict is unknown"],
         )
         return {"status": status, "verdict": verdict, "response": str(path)}
