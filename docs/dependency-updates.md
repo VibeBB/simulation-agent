@@ -24,6 +24,15 @@ update candidates.
 
 ## Update history
 
+### 2026-10-05 — sdk 1.52.0
+
+Full changelog review: [SDK v1.52.0 feature evaluation](research/sdk-v1.52.0-feature-evaluation.md).
+
+| Component | From -> To | Decision |
+| --- | --- | --- |
+| `openhands-sdk` / `openhands-tools` (sdk-check group) | 1.51.0 -> 1.52.0 | Adopted. All 19 upstream commits reviewed; fixes adopted implicitly, agent-server/TS-client changes not applicable. |
+| mcp | deferred at <2 | openhands-sdk 1.52.0 still requires `fastmcp<4` -> `mcp<2`; deferral reason refreshed to cite 1.52.0. |
+
 ### 2026-10-04 — GitHub Actions latest state, Python 3.14, 3.15 canary
 
 | Component | From -> To | Decision |
