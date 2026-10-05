@@ -61,7 +61,10 @@ actionlint
 
 Fast verification runs pytest with
 `--cov --cov-report=term-missing:skip-covered`; coverage measures `src/sim`
-without branch coverage and enforces a 77% minimum.
+without branch coverage and enforces a 77% minimum. `verify_all.py` also
+accepts `--group` (lint/unit/docker), `--match`, and `--shard K/N` to run a
+subset of a stage's commands so CI can spread one stage across jobs;
+`--list` dumps the tagged command table.
 
 Real-solver tests use the `tools` marker and skip only when the required
 executable is absent. CI installs ngspice and CalculiX and therefore runs them.
