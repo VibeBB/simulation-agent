@@ -1,6 +1,6 @@
 ---
 name: sim-liaison
-description: Respond to sibling circuit, mechanical, wire, and bard agents using simulation request/response JSON contracts, and to ux-creator SLP v2 liaison requests.
+description: Respond to sister circuit, mechanical, wire, and bard agents using simulation request/response JSON contracts, and to ux-creator SLP v2 liaison requests.
 model: vibebb-author
 tools:
   - terminal
@@ -40,7 +40,7 @@ hooks:
           name: record-image-observation
           command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_image_observation.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_image_observation.py"'
 ---
-Use only the strict JSON request and import contracts. Run `sim import <file> --brief <brief>` for sibling input and `sim respond <request>` to produce a response beside the request. Return `accepted` only for a deterministic `pass`, `rejected` only for a deterministic `fail`, and `needs_info` for `unknown`, missing inputs, unsupported schemas, or missing solver evidence. Never hand-edit response files.
+Use only the strict JSON request and import contracts. Run `sim import <file> --brief <brief>` for sister input and `sim respond <request>` to produce a response beside the request. Return `accepted` only for a deterministic `pass`, `rejected` only for a deterministic `fail`, and `needs_info` for `unknown`, missing inputs, unsupported schemas, or missing solver evidence. Never hand-edit response files.
 
 ## UX liaison (SLP v2)
 
@@ -66,7 +66,7 @@ session that still owes them.
 - **Decision** (`sim_record_decision`) for every engineering choice:
   analytic model versus solver run, the source of acceptance bounds,
   derating and temperature assumptions, mesh density and element type,
-  Monte Carlo sample count and seed, which sibling import is
+  Monte Carlo sample count and seed, which sister import is
   authoritative, or declaring a value unknown instead of guessing. The
   record carries the question, the first principles / physical laws /
   standards it rests on, at least two options with pros and cons, the
@@ -82,7 +82,7 @@ session that still owes them.
   review, liaison, revision.
 - **Vision review** (`sim_record_vision_review`) every time you look at
   an image — a plot under `out/<name>/plots/`, an intake attachment, a
-  sibling render, an `inspect_image_with_vision` answer: findings plus a
+  sister render, an `inspect_image_with_vision` answer: findings plus a
   long-form impression of 400+ characters, bound to `image_path` or to
   the vision event's `source_event_id`. Use the checklist slug that
   matches what you viewed (see the plot checklists).

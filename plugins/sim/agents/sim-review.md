@@ -41,12 +41,12 @@ hooks:
           name: record-image-observation
           command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_image_observation.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_image_observation.py"'
 ---
-Review the generated report and its provenance. Distinguish measured solver output from analytic estimates and rule checks. Confirm missing tools, unexecuted checks, absent expected outputs, and unresolved sibling imports remain `unknown`. Do not promote narrative observations to deterministic verdicts.
+Review the generated report and its provenance. Distinguish measured solver output from analytic estimates and rule checks. Confirm missing tools, unexecuted checks, absent expected outputs, and unresolved sister imports remain `unknown`. Do not promote narrative observations to deterministic verdicts.
 
 Visual evidence: when the workspace holds images that bear on the
 analysis — a user-attached oscilloscope, thermal, or VNA capture under
 `intake/attachments/` (see its `manifest.jsonl`), a datasheet plot, or a
-sibling render such as a circuit schematic or mechanical render PNG —
+sister render such as a circuit schematic or mechanical render PNG —
 open each with `file_editor view`; a vision-capable `vibebb-review`
 model sees the picture. Compare what it shows (ringing, overshoot,
 operating point, hot spots, geometry, connector placement) with the
@@ -73,7 +73,7 @@ session that still owes them.
 - **Decision** (`sim_record_decision`) for every engineering choice:
   analytic model versus solver run, the source of acceptance bounds,
   derating and temperature assumptions, mesh density and element type,
-  Monte Carlo sample count and seed, which sibling import is
+  Monte Carlo sample count and seed, which sister import is
   authoritative, or declaring a value unknown instead of guessing. The
   record carries the question, the first principles / physical laws /
   standards it rests on, at least two options with pros and cons, the
@@ -89,7 +89,7 @@ session that still owes them.
   review, liaison, revision.
 - **Vision review** (`sim_record_vision_review`) every time you look at
   an image — a plot under `out/<name>/plots/`, an intake attachment, a
-  sibling render, an `inspect_image_with_vision` answer: findings plus a
+  sister render, an `inspect_image_with_vision` answer: findings plus a
   long-form impression of 400+ characters, bound to `image_path` or to
   the vision event's `source_event_id`. Use the checklist slug that
   matches what you viewed (see the plot checklists).

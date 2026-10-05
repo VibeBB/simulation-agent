@@ -15,11 +15,25 @@ def verify() -> list[str]:
         "AGENTS.md",
         "CHANGELOG.md",
         "THIRD_PARTY.md",
+        "docs/README.md",
         "docs/architecture.md",
+        "docs/workflow.md",
+        "docs/agents.md",
+        "docs/skills.md",
+        "docs/commands.md",
+        "docs/mcp.md",
+        "docs/hooks.md",
+        "docs/contracts.md",
+        "docs/records-and-vision.md",
+        "docs/sister-cooperation.md",
+        "docs/performance-and-limits.md",
         "docs/operations.md",
+        "docs/development.md",
+        "docs/improvement-notes.md",
         "docs/adr/0001-subprocess-only-solvers.md",
         "docs/adr/0002-sibling-contracts.md",
         "docs/adr/0003-verdict-semantics.md",
+        "docs/adr/0009-records-liaison-vision.md",
         "docker/README.md",
     )
     for item in required:
@@ -41,7 +55,7 @@ def verify() -> list[str]:
         "commands": len(list((plugin / "commands").glob("*.md"))),
         "skills": len(list((plugin / "skills").glob("*/SKILL.md"))),
     }
-    expected = {"agents": 3, "commands": 13, "skills": 10}
+    expected = {"agents": 3, "commands": 16, "skills": 11}
     if counts != expected:
         failures.append(f"plugin inventory {counts!r} != {expected!r}")
     for path in sorted((plugin / "skills").glob("*/SKILL.md")):

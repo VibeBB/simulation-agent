@@ -223,9 +223,7 @@ def test_github_env_writes_not_referenced_in_same_step() -> None:
 
 def test_cache_sweep_keeps_runner_scoped_trivy_key() -> None:
     """The sweep's keep-key must match the writers' runner-scoped key format."""
-    sweep = (REPO_ROOT / ".github" / "workflows" / "cache-sweep.yml").read_text(
-        encoding="utf-8"
-    )
+    sweep = (REPO_ROOT / ".github" / "workflows" / "cache-sweep.yml").read_text(encoding="utf-8")
     writers = "".join(
         (REPO_ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
         for name in ("container-audit.yml", "publish-sim-images.yml")

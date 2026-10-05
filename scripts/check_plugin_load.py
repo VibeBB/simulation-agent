@@ -17,6 +17,7 @@ EXPECTED_SKILLS = {
     "sim-rf-openems",
     "sim-sibling-cooperation",
     "sim-spice",
+    "sim-vision-review",
     "sim-wca",
     "sim-workflow",
 }
@@ -34,6 +35,9 @@ EXPECTED_COMMANDS = {
     "gates",
     "import",
     "respond",
+    "records",
+    "ux-inbox",
+    "plots",
 }
 EXPECTED_HOOKS = {
     "session_start": {
@@ -116,7 +120,7 @@ def main() -> int:
         print("\n".join(failures), file=sys.stderr)
         return 1
     print(
-        "plugin-load OK: 3 agents, 13 commands, 10 skills, "
+        "plugin-load OK: 3 agents, 16 commands, 11 skills, "
         "session-start/user-prompt-submit/pre-tool-use/stop/post-tool-use hooks"
     )
     return 0

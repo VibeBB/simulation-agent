@@ -11,13 +11,13 @@ triggers:
 ## End-to-end flow
 
 1. Run `/sim:doctor`; use strict mode when a solver is required for acceptance. Record missing tools before choosing analyses.
-2. Gather source artifacts, operating conditions, material/geometry facts, and explicit limits. Use `/sim:import <file> --brief <brief>` for supported sibling contracts; add the same path and system to `imports[]`.
+2. Gather source artifacts, operating conditions, material/geometry facts, and explicit limits. Use `/sim:import <file> --brief <brief>` for supported sister contracts; add the same path and system to `imports[]`.
 3. Author a workspace-relative `*.sim.json` brief using only supported evidence. Validate with `sim validate <brief>` or inspect the model using `sim schema`/the `sim_schema` MCP tool.
 4. Execute `/sim:run <brief>` for every declared section or one focused command (`/sim:spice`, `/sim:pdn`, `/sim:thermal`, `/sim:wca`, `/sim:emc`, `/sim:dft`, `/sim:fem`, `/sim:rf`).
 5. Use `/sim:gates <brief>` for the complete gate summary. Review `out/<name>/sim-report.json`, `sim-report.md`, `provenance.json`, and `manifest.json`; cite gate IDs, measurements, tools, and source hashes.
-6. For a sibling request, run `/sim:respond <request.sim-request.json>` and return the generated response path. A deterministic `pass` is `accepted`, `fail` is `rejected`, and `unknown` or missing evidence is `needs_info`.
+6. For a sister request, run `/sim:respond <request.sim-request.json>` and return the generated response path. A deterministic `pass` is `accepted`, `fail` is `rejected`, and `unknown` or missing evidence is `needs_info`.
 
-The OpenHands command set is `/sim:doctor`, `/sim:run`, `/sim:gates`, `/sim:import`, `/sim:respond`, `/sim:spice`, `/sim:pdn`, `/sim:thermal`, `/sim:wca`, `/sim:emc`, `/sim:dft`, `/sim:fem`, and `/sim:rf`. Commands use the installed plugin launcher; the equivalent source-tree form is `python3 plugins/sim/scripts/sim_launcher.py <subcommand> ...`.
+The OpenHands command set is `/sim:doctor`, `/sim:run`, `/sim:gates`, `/sim:import`, `/sim:respond`, `/sim:ux-inbox`, `/sim:plots`, `/sim:records`, `/sim:spice`, `/sim:pdn`, `/sim:thermal`, `/sim:wca`, `/sim:emc`, `/sim:dft`, `/sim:fem`, and `/sim:rf`. Commands use the installed plugin launcher; the equivalent source-tree form is `python3 plugins/sim/scripts/sim_launcher.py <subcommand> ...`.
 
 ```json
 {
@@ -60,7 +60,7 @@ session that still owes them.
 - **Decision** (`sim_record_decision`) for every engineering choice:
   analytic model versus solver run, the source of acceptance bounds,
   derating and temperature assumptions, mesh density and element type,
-  Monte Carlo sample count and seed, which sibling import is
+  Monte Carlo sample count and seed, which sister import is
   authoritative, or declaring a value unknown instead of guessing. The
   record carries the question, the first principles / physical laws /
   standards it rests on, at least two options with pros and cons, the
@@ -76,7 +76,7 @@ session that still owes them.
   review, liaison, revision.
 - **Vision review** (`sim_record_vision_review`) every time you look at
   an image — a plot under `out/<name>/plots/`, an intake attachment, a
-  sibling render, an `inspect_image_with_vision` answer: findings plus a
+  sister render, an `inspect_image_with_vision` answer: findings plus a
   long-form impression of 400+ characters, bound to `image_path` or to
   the vision event's `source_event_id`. Use the checklist slug that
   matches what you viewed (see the plot checklists).

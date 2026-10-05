@@ -65,7 +65,7 @@ session that still owes them.
 - **Decision** (`sim_record_decision`) for every engineering choice:
   analytic model versus solver run, the source of acceptance bounds,
   derating and temperature assumptions, mesh density and element type,
-  Monte Carlo sample count and seed, which sibling import is
+  Monte Carlo sample count and seed, which sister import is
   authoritative, or declaring a value unknown instead of guessing. The
   record carries the question, the first principles / physical laws /
   standards it rests on, at least two options with pros and cons, the
@@ -81,7 +81,7 @@ session that still owes them.
   review, liaison, revision.
 - **Vision review** (`sim_record_vision_review`) every time you look at
   an image — a plot under `out/<name>/plots/`, an intake attachment, a
-  sibling render, an `inspect_image_with_vision` answer: findings plus a
+  sister render, an `inspect_image_with_vision` answer: findings plus a
   long-form impression of 400+ characters, bound to `image_path` or to
   the vision event's `source_event_id`. Use the checklist slug that
   matches what you viewed (see the plot checklists).
