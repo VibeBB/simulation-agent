@@ -314,9 +314,7 @@ def test_record_image_observation_logs_sim_run_plot_paths(tmp_path: Path) -> Non
             "tool_name": "sim_run",
             "tool_input": {"brief": "demo.sim.json"},
             "tool_response": {
-                "output": json.dumps(
-                    {"plots": [{"path": "out/demo/plots/summary.png"}]}
-                )
+                "output": json.dumps({"plots": [{"path": "out/demo/plots/summary.png"}]})
             },
             "subagent_type": "sim-analyst",
             "action_id": "act-9",
