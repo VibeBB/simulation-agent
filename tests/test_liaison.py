@@ -494,3 +494,10 @@ def test_write_response_rejects_unknown_decision_ref(
     monkeypatch.setenv("OPENHANDS_PROJECT_DIR", str(tmp_path))
     with pytest.raises(ValueError, match=re.escape("not a decisions.jsonl event_id")):
         write_response(tmp_path / "r.json", "r1", "needs_info", decision_refs=["0" * 64])
+
+
+def test_family_request_id_with_dot_and_underscore_is_accepted(tmp_path: Path) -> None:
+    path = _request(tmp_path, "k.v_1", depends_on=["k.base_0"])
+    request = load_request(path)
+    assert request.id == "k.v_1"
+    assert request.depends_on == ["k.base_0"]
