@@ -17,7 +17,7 @@ solvers).
 | KiCad-rfsim | commit `efa0ea9bd34b13f7819c6f2d4c02e78d34b116c3` | GPL-3.0 | Optional RF/microstrip modelling |
 | pydantic | `>=2` via `uv.lock` | MIT | Contract models |
 | mcp | `>=1.29,<2` via `uv.lock` | MIT | MCP server |
-| openhands-sdk / openhands-tools | `1.51.0` (sdk-check group) | MIT | Plugin-load verification |
+| openhands-sdk / openhands-tools | `1.52.0` (sdk-check group) | MIT | Plugin-load verification |
 | coverage | `7.16.2` (dev group) | Apache-2.0 | Test coverage measurement |
 | pytest-cov | `7.1.0` (dev group) | MIT | Pytest coverage integration |
 
