@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TypedDict
@@ -78,7 +77,8 @@ def test_default_docker_without_image_fails_closed(
     assert not calls
     error = capsys.readouterr().err
     assert "SIM_TOOLS_IMAGE" in error
-    assert "SIM_LAUNCH_MODE=host" in error
+    assert "prewarm" in error
+    assert "SIM_LAUNCH_MODE=host" not in error
 
 
 def test_default_docker_without_binary_fails_closed(
@@ -93,7 +93,7 @@ def test_default_docker_without_binary_fails_closed(
     assert not calls
     error = capsys.readouterr().err
     assert "docker is not on PATH" in error
-    assert "SIM_LAUNCH_MODE=host" in error
+    assert "SIM_LAUNCH_MODE=host" not in error
 
 
 def test_default_docker_warn_emits_unknown_json(
@@ -110,42 +110,21 @@ def test_default_docker_warn_emits_unknown_json(
     assert warning["verdict"] == "unknown"
     assert "docker is not on PATH" in warning["warning"]
     assert "SIM_TOOLS_IMAGE" in warning["warning"]
-    assert "SIM_LAUNCH_MODE=host" in warning["warning"]
+    assert "SIM_LAUNCH_MODE=host" not in warning["warning"]
 
 
-def test_host_mode_runs_on_host_when_image_exists(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SIM_LAUNCH_MODE", "host")
-    monkeypatch.setenv("SIM_TOOLS_IMAGE", "sim-tools:test")
-    monkeypatch.setattr(launcher.shutil, "which", _docker_path)
-    monkeypatch.setattr(launcher, "_image_pin", _test_image_pin)
-    calls = _capture_exec(monkeypatch)
-
-    assert launcher.main(["doctor"]) == 0
-    assert calls[0][0] == sys.executable
-    assert calls[0][1][:3] == [sys.executable, "-m", "sim"]
-
-
-def test_auto_mode_without_image_falls_back_to_host(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SIM_LAUNCH_MODE", "auto")
-    monkeypatch.delenv("SIM_TOOLS_IMAGE", raising=False)
-    monkeypatch.setattr(launcher.shutil, "which", _docker_path)
-    monkeypatch.setattr(launcher, "_image_pin", _no_image)
-    calls = _capture_exec(monkeypatch)
-
-    assert launcher.main(["doctor"]) == 0
-    assert calls[0][0] == sys.executable
-    assert calls[0][1][:3] == [sys.executable, "-m", "sim"]
-
-
-def test_invalid_mode_exits_two_with_usage(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize("mode", ["host", "auto", "invalid"])
+def test_removed_launch_modes_exit_two(
+    mode: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("SIM_LAUNCH_MODE", "invalid")
+    monkeypatch.setenv("SIM_LAUNCH_MODE", mode)
     calls = _capture_exec(monkeypatch)
 
     assert launcher.main(["doctor"]) == 2
     assert not calls
-    assert "usage:" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "host/auto were removed" in error
+    assert "pinned sim-tools image" in error
 
 
 def test_default_docker_runs_image_when_available(monkeypatch: pytest.MonkeyPatch) -> None:

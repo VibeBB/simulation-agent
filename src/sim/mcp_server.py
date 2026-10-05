@@ -45,6 +45,53 @@ RECORDERS_MCP = {
     "sim_record_impression": RECORDERS["impression"],
     "sim_record_vision_review": RECORDERS["vision-review"],
 }
+DESCRIPTIONS = {
+    "sim_doctor": (
+        "Probe the simulation tool environment (solvers, interpreters) and report "
+        "what is available. Read-only; writes nothing."
+    ),
+    "sim_validate_brief": (
+        "Validate a *.sim.json brief against the strict schema. Writes nothing."
+    ),
+    "sim_run": (
+        "Run the brief's declared analyses and write the report bundle under "
+        "out/<name>/ (sim-report.json/md, manifest, provenance, solver artifacts). "
+        "Verdicts are deterministic; unknown is blocking."
+    ),
+    "sim_gates": (
+        "Run every declared analysis and return the aggregate gate verdict, "
+        "writing the same out/<name>/ report bundle. Deterministic; unknown is blocking."
+    ),
+    "sim_import": (
+        "Validate a sibling-agent import file and record it under out/<name>/ "
+        "for use by the brief. Writes an import record."
+    ),
+    "sim_respond": (
+        "Answer a sibling *.sim-request.json: runs the requested analysis and "
+        "writes <name>.sim-response.json with a deterministic status."
+    ),
+    "sim_schema": ("Return the JSON schema of the simulation brief. Writes nothing."),
+    "sim_record_decision": (
+        "Append a VibeBB decision record to observations/sim/decisions.jsonl "
+        "(principles, options, evidence, risks). Advisory; never changes a verdict."
+    ),
+    "sim_record_impression": (
+        "Append a stage impression bound to artifact hashes in "
+        "observations/sim/impressions.jsonl. Advisory; never changes a verdict."
+    ),
+    "sim_record_vision_review": (
+        "Append a vision review for an image or vision tool event to "
+        "observations/sim/vision-reviews.jsonl. Advisory; never changes a verdict."
+    ),
+    "sim_records_status": (
+        "Report record counts per log and the last Stop-hook verdict. Writes nothing."
+    ),
+}
+for _analysis in ANALYSES:
+    DESCRIPTIONS[f"sim_{_analysis}"] = (
+        f"Run only the {_analysis} analysis of the brief and write its results "
+        "under out/<name>/. Verdicts are deterministic; unknown is blocking."
+    )
 
 
 def tool_specs() -> list[types.Tool]:
@@ -104,7 +151,7 @@ def tool_specs() -> list[types.Tool]:
     return [
         types.Tool(
             name=name,
-            description=name.replace("_", " "),
+            description=DESCRIPTIONS.get(name, name),
             inputSchema=value,
             annotations=types.ToolAnnotations(
                 title=name,
