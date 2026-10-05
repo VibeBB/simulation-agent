@@ -5,11 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import NoReturn
+from typing import NoReturn, cast
 
 from .brief import load_brief, schema
 from .doctor import run_doctor
 from .imports import write_import_record
+from .records import RECORDERS, records_summary
 from .requests import load_request
 from .responses import write_response
 from .run import run_simulation
@@ -46,6 +47,12 @@ def _parser() -> argparse.ArgumentParser:
     do_import.add_argument("--brief", required=True)
     respond = subparsers.add_parser("respond")
     respond.add_argument("request")
+    record = subparsers.add_parser("record")
+    record_sub = record.add_subparsers(dest="record_kind", required=True)
+    for kind in ("decision", "impression", "vision-review"):
+        item = record_sub.add_parser(kind)
+        item.add_argument("--json", required=True)
+    record_sub.add_parser("status")
     subparsers.add_parser("schema")
     return parser
 
@@ -176,6 +183,16 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "respond":
             return _respond(args, root)
+        if args.command == "record":
+            if args.record_kind == "status":
+                _print(records_summary(root))
+                return 0
+            payload_path = workspace_path(args.json, root)
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("record payload must be a JSON object")
+            _print(RECORDERS[args.record_kind](cast(dict[str, object], payload), root))
+            return 0
     except (OSError, ValueError, KeyError, TypeError) as exc:
         _print({"verdict": "fail", "detail": str(exc)})
         return 2

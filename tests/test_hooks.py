@@ -109,13 +109,37 @@ def test_apply_patch_openhands_header_targets_vision_artifacts(tmp_path: Path) -
     assert allowed.returncode == 0
 
 
+def test_record_logs_and_session_markers_are_protected(tmp_path: Path) -> None:
+    for path in (
+        "observations/sim/decisions.jsonl",
+        "observations/sim/impressions.jsonl",
+        "observations/sim/vision-reviews.jsonl",
+        "observations/sim/records-status.json",
+        "observations/sim/.sessions/s1.json",
+    ):
+        result = _hook(
+            "plugins/sim/hooks/scripts/protect_generated.py",
+            {
+                "working_dir": str(tmp_path),
+                "tool_name": "file_editor",
+                "tool_input": {"command": "write", "path": path},
+            },
+        )
+        assert result.returncode == 2, path
+
+
 def test_plugin_and_agent_vision_hooks_are_declared() -> None:
     plugin_root = ROOT / "plugins" / "sim"
     hooks = json.loads((plugin_root / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     expected = {
-        "session_start": {"sim-doctor", "intake-attachments", "ensure-llm-profiles"},
+        "session_start": {
+            "sim-doctor",
+            "intake-attachments",
+            "ensure-llm-profiles",
+            "require-records",
+        },
         "user_prompt_submit": {"intake-attachments"},
-        "stop": {"sim-report-status", "intake-attachments"},
+        "stop": {"require-records", "sim-report-status", "intake-attachments"},
         "post_tool_use": {"record-image-observation", "record-vision-tool-event"},
     }
     for event, names in expected.items():

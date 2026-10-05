@@ -39,11 +39,13 @@ def _is_protected(value: str, root: Path) -> bool:
 
 
 def _is_vision_artifact(path: Path) -> bool:
-    return (
-        len(path.parts) >= 3
-        and path.parts[:2] == ("observations", "sim")
-        and path.suffix == ".jsonl"
-    ) or path.parts == ("intake", "attachments", "manifest.jsonl")
+    if path.parts == ("intake", "attachments", "manifest.jsonl"):
+        return True
+    if len(path.parts) >= 3 and path.parts[:2] == ("observations", "sim"):
+        if path.suffix == ".jsonl" or path.name == "records-status.json":
+            return True
+        return path.parts[2] == ".sessions"
+    return False
 
 
 PATCH_PATH_PREFIXES = (

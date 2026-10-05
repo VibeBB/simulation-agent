@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "plugin": "sim",
+  "records_dir": "observations/sim",
+  "artifact_globs": [
+    "**/*.sim.json",
+    "**/*.sim-response.json",
+    "liaison/*.ux-response.json",
+    "out/**/sim-report.json",
+    "out/**/sim-report.md",
+    "out/**/plots/*.png"
+  ],
+  "ignore_globs": ["examples/**", "tests/**", ".devin/**", "observations/**"],
+  "max_stop_denials": 2,
+  "record_hint": "Use the MCP tools sim_record_decision, sim_record_impression and sim_record_vision_review (or `python -m sim record decision|impression|vision-review --json <file>`). Impressions need at least 400 characters and 3 sentences: what you noticed, what works, what worries you, how a maker or user would read it, and what to do next."
+}

@@ -40,10 +40,11 @@ EXPECTED_HOOKS = {
         "sim-doctor",
         "intake-attachments",
         "ensure-llm-profiles",
+        "require-records",
     },
     "user_prompt_submit": {"intake-attachments"},
     "pre_tool_use": {"protect-generated", "safety-rail"},
-    "stop": {"sim-report-status", "intake-attachments"},
+    "stop": {"require-records", "sim-report-status", "intake-attachments"},
     "post_tool_use": {"record-image-observation", "record-vision-tool-event"},
 }
 

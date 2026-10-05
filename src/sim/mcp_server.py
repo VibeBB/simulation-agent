@@ -16,6 +16,13 @@ from . import __version__
 from .brief import load_brief, schema
 from .doctor import run_doctor
 from .imports import write_import_record
+from .records import (
+    RECORDERS,
+    DecisionInput,
+    StageImpressionInput,
+    VisionReviewInput,
+    records_summary,
+)
 from .requests import load_request
 from .responses import write_response
 from .run import run_simulation
@@ -28,7 +35,15 @@ WRITING_TOOLS = {
     "sim_gates",
     "sim_import",
     "sim_respond",
+    "sim_record_decision",
+    "sim_record_impression",
+    "sim_record_vision_review",
     *(f"sim_{analysis}" for analysis in ANALYSES),
+}
+RECORDERS_MCP = {
+    "sim_record_decision": RECORDERS["decision"],
+    "sim_record_impression": RECORDERS["impression"],
+    "sim_record_vision_review": RECORDERS["vision-review"],
 }
 
 
@@ -70,6 +85,14 @@ def tool_specs() -> list[types.Tool]:
             "additionalProperties": False,
         },
         "sim_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+        "sim_record_decision": DecisionInput.model_json_schema(),
+        "sim_record_impression": StageImpressionInput.model_json_schema(),
+        "sim_record_vision_review": VisionReviewInput.model_json_schema(),
+        "sim_records_status": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
     }
     for analysis in ANALYSES:
         schemas[f"sim_{analysis}"] = {
@@ -165,6 +188,10 @@ def dispatch_tool(name: str, arguments: dict[str, object]) -> dict[str, object]:
                 workspace_path(root / "out" / brief.name, root),
             ),
         }
+    if name in RECORDERS_MCP:
+        return RECORDERS_MCP[name](arguments, root)
+    if name == "sim_records_status":
+        return records_summary(root)
     if name == "sim_respond":
         request_path = workspace_path(_string_argument(arguments, "request"), root)
         request = load_request(request_path)
