@@ -34,7 +34,7 @@ jobs:
           # shared by the container-audit CIS scan), drop daily trivy-action
           # caches older than two days, and reset the buildx gha blob/index
           # cache, which otherwise grows unbounded.
-          week_key="trivy-db-$(date +%G-W%V)"
+          week_key="trivy-db-${RUNNER_OS}-$(date +%G-W%V)"
           cutoff=$(date -u -d '2 days ago' +%s)
           deleted=0
           gh api "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" \
