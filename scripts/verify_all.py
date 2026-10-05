@@ -62,6 +62,10 @@ STAGES = {
                 "docker/sim-tools.Dockerfile",
                 "-t",
                 "sim-tools:verify",
+                # Reuse the CI-warmed registry buildcache on local runs; a
+                # missing tag is a build warning, not an error.
+                "--cache-from",
+                "type=registry,ref=ghcr.io/vibebb/sim-tools:buildcache",
                 ".",
             ),
             group="docker",

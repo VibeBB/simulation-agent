@@ -244,6 +244,25 @@ package-level SPDX-2.3 SBOM. A guard reports disk space and the attested SBOM
 size after transformation and fails above 16 MiB; the full Syft SBOM is
 uploaded as a 90-day workflow-run artifact.
 
+## Local verification
+
+`scripts/verify_all.py --list` dumps each stage's commands as JSON; `--group`
+(`lint`, `unit`, `docker`), `--match <substr>`, and `--shard K/N` select a
+subset of a stage for a faster local check — CI uses the same flags for its
+matrix legs, so a local partial run reproduces a failing check exactly. Run
+the full `fast` stage before submitting.
+
+The standard stage's `docker build` and local `sim-tools` builds reuse the
+CI-warmed registry buildcache; it is a public `buildcache` tag, so no GHCR
+login is needed:
+
+```bash
+docker buildx build --load --target sim-tools \
+  -f docker/sim-tools.Dockerfile -t sim-tools:local \
+  --cache-from type=registry,ref=ghcr.io/vibebb/sim-tools:buildcache \
+  .
+```
+
 ## Main-only verification boundary
 
 Some steps can never execute on a pull request — pull_request CI sees only
