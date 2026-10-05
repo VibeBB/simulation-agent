@@ -2,188 +2,136 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/VibeBB/simulation-agent)
 
-`sim` is an OpenHands plugin for deterministic, fail-closed engineering
-simulation analysis. It complements circuit, mechanical, wire, UX, and bard
-agents through versioned JSON files in the shared workspace; it does not import
-sibling packages.
+`sim` is the VibeBB plugin that checks your hardware design **before you
+build it**. It answers one question honestly: is the circuit, the power, the
+heat, the strength, the radio behavior, and the testability of this design
+OK — and it only says "pass" when the numbers prove it.
 
-## Install
+## What it does for you
 
-Install the `sim` plugin in OpenHands and make Docker available for the locked
-solver image. The launcher defaults to Docker and requires Docker plus a
-resolvable tools image; set `SIM_TOOLS_IMAGE` to select one. Set
-`SIM_LAUNCH_MODE=host` to run with the host Python environment, or `auto` to
-retain Docker-when-available behavior. Run `/sim:doctor` to inspect solver
-availability.
+You describe the design and your limits — component values, voltages,
+temperatures, loads, board rules — in a small JSON file (the *brief*), or a
+sister plugin hands it over. `sim` then runs deterministic checks and real
+solver programs and answers with **pass**, **fail**, or **unknown**.
+`unknown` is honest: it means information or a tool is missing, never that
+things are fine.
 
-## Commands
+## What you give
 
-The plugin provides `/sim:doctor`, `/sim:run`, `/sim:spice`, `/sim:pdn`,
-`/sim:thermal`, `/sim:wca`, `/sim:emc`, `/sim:dft`, `/sim:fem`, `/sim:rf`,
-`/sim:gates`, `/sim:import`, and `/sim:respond`.
+- Your requirements and limits (numbers, bounds, acceptance criteria).
+- Files from sister plugins — circuit, mechanical, wire, or UX data
+  imported as hash-verified contracts.
+- Optionally, your own SPICE netlists, Touchstone files, or test-point
+  layouts.
 
-## Hooks
+## What you get back
 
-Session start runs `sim-doctor`, `intake-attachments`, and
-`ensure-llm-profiles`. Attachment intake also runs on user prompts and
-session stop. `inspect_image_with_vision` responses and `file_editor` image
-views are recorded by post-tool hooks under `observations/sim/`; these records
-are advisory evidence and never affect deterministic verdicts.
+- A `sim-report` (JSON + readable Markdown) with per-check verdicts and
+  the numbers behind them.
+- PNG plots for every analysis — summary, margins, waveforms, board
+  test-point maps, deflection curves — that you and the agent can look at.
+- Records explaining *why*: decisions with reasons, what was seen in each
+  image, and long-form impressions, kept as an auditable trail.
 
-The JSON CLI is also available as `python -m sim`:
+## How it works with sister plugins
 
-```bash
-python -m sim doctor --warn
-python -m sim validate examples/buck-regulator/buck.sim.json
-python -m sim gates examples/buck-regulator/buck.sim.json
-python -m sim respond examples/buck-regulator/buck.sim-request.json
-```
+`sim` is the analysis sister of the VibeBB family: circuit, mech, wire,
+bard, firmware, fpga, prodeng, dashboard, doc, and **ux-creator**, which
+directs multi-agent work through liaison requests under `liaison/`. Every
+exchange is a validated JSON file in the shared workspace — nothing is
+imported across repos.
 
-CLI output is JSON. Exit status is 0 for `pass`, 1 for `fail`, 3 for
-`unknown`, and 2 for usage or input errors. Generated artifacts are written
-under `out/<name>/`: `sim-report.json`, `sim-report.md`, `manifest.json`,
-`provenance.json`, and adapter output. These are projections of the brief and
-must not be edited by hand.
+## Getting started
 
-## Analyses
+1. Install the `sim` plugin in OpenHands (or AgentCanvas) and make Docker
+   available — plugin tools run inside the pinned `sim-tools` image.
+2. Run `/sim:doctor` to check solver availability.
+3. Give the agent your design or run `/sim:run <brief>` yourself.
+4. Talk to the agent: it writes the brief, runs the analyses, looks at the
+   plots, and records why it concluded what it concluded.
 
-| Analysis | Method |
-| --- | --- |
-| SPICE | Unmodified `ngspice` batch process; parse declared `.meas` results |
-| PDN | DC nodal solve, copper temperature correction, IPC-2221 trace ampacity |
-| Thermal | Scalar resistance paths or thermal nodal networks |
-| WCA | Restricted expression AST; EVA, RSS, seeded Monte Carlo, bounded SPICE corners |
-| EMC / ESD | Declared-data TVS, placement, critical-length, reference-plane, and decoupling rules |
-| DFT | Test-point coverage, pad diameter, pitch, debug-header, and boundary-scan rules |
-| FEM | CalculiX subprocess for a cantilever box plus an Euler–Bernoulli estimate |
-| RF | Touchstone v1 band checks, optional KiCad-rfsim/openEMS subprocess, microstrip estimate |
+## Limits
 
-Only deterministic analysis code emits verdicts. `fail` blocks acceptance;
-`unknown` is unresolved and never becomes `pass` because a tool exited
-successfully or an agent inferred a result. Analytic estimates are labelled and
-do not replace unavailable solver output.
+- Models are simplified first-order checks plus solver runs — they are not
+  a certification and do not replace measurement of real hardware.
+- `unknown` means missing evidence, not "probably fine".
+- The optional openEMS image (`sim-tools-em`) is not published yet.
 
-## Sibling cooperation
+## Safety
 
-Simulation briefs (`*.sim.json`), imports (`*.connectivity.json`,
-`*.envelope.json`, `*.contract.json`), and requests/responses (`*.sim-request.json`,
-`*.sim-response.json`) are strict, versioned JSON contracts. Each imported file
-is validated by local mirror models and recorded with its SHA-256 digest.
-Declare consumed imports in the brief; every run rebuilds `imports.json` from
-those validated declarations rather than trusting prior generated output.
-Unsupported or malformed sibling content remains unknown; no sibling Python
-package is imported.
+- Docker-only, no network access needed for analysis.
+- All paths stay inside the workspace; symlink escapes are rejected.
+- Generated files (reports, plots, responses, records) are protected and
+  regenerated from inputs, never hand-edited.
+- Only deterministic gates can emit `pass` — no AI judgment can promote a
+  result.
 
-## Development
-
-Python 3.14+, uv `0.12.23`, and Docker are used by the repository workflow.
-The `workflow-lint.yml` job runs actionlint 1.7.12 and zizmor 1.30.1 on pull
-requests, workflow changes to main, manual dispatch, and weekly.
-
-```bash
-uv sync --locked
-uv run python scripts/verify_all.py --stage fast
-uv run python scripts/check_plugin_load.py
-uv run python scripts/verify_all.py --stage standard
-actionlint
-uvx zizmor@1.30.1 --format plain .github/workflows
-docker build --target sim-tools -f docker/sim-tools.Dockerfile -t sim-tools:local .
-uv run python scripts/smoke_image.py --image sim-tools:local
-```
-
-See [operations](docs/operations.md), [architecture](docs/architecture.md),
-and [Docker notes](docker/README.md) for implementation and deployment
-boundaries. The [ADRs](docs/adr/) include
-[ADR-0006: Docker-only launcher default](docs/adr/0006-docker-only-launcher-default.md)
-and
-[ADR-0007: Attest published tools images](docs/adr/ADR-0007-attest-published-tools-images.md).
+Developer and CI documentation lives in [docs/](docs/README.md).
 
 ## 日本語
 
-`sim` は決定論的でフェイルクローズなエンジニアリングシミュレーション解析のための
-OpenHands プラグインです。共有ワークスペース内のバージョン管理された JSON ファイルを
-通じて回路・メカ・ワイヤ・UX・bard の各エージェントを補完し、姉妹パッケージを
-インポートしません。
+`sim` は、ハードウェア設計を**作る前に**チェックする VibeBB プラグインです。
+回路・電源・熱・強度・無線特性・テスト性が大丈夫かどうかを正直に答えます。
+「pass」と言うのは、数字が証明したときだけです。
 
-### インストール
+### 何をしてくれるか
 
-OpenHands に `sim` プラグインをインストールし、ロックされたソルバーイメージ用に
-Docker を利用可能にしてください。ランチャーは既定で Docker を使い、Docker と
-解決可能なツールイメージを必要とします。`SIM_TOOLS_IMAGE` でイメージを選択、
-`SIM_LAUNCH_MODE=host` でホスト Python 環境での実行、`auto` で Docker 利用時のみ
-Docker の動作を維持できます。`/sim:doctor` でソルバーの有無を確認できます。
+設計と制約条件 — 部品の値、電圧、温度、負荷、基板ルール — を小さな JSON
+ファイル(*ブリーフ*)に書くか、姉妹(sister)プラグインが渡します。`sim` は
+決定論的チェックと実際のソルバーを実行し、**pass** / **fail** /
+**unknown** で答えます。`unknown` は正直な答えです:情報やツールが
+足りないという意味であって、問題ないという意味ではありません。
 
-### コマンド
+### 何を用意するか
 
-`/sim:doctor`、`/sim:run`、`/sim:spice`、`/sim:pdn`、`/sim:thermal`、
-`/sim:wca`、`/sim:emc`、`/sim:dft`、`/sim:fem`、`/sim:rf`、`/sim:gates`、
-`/sim:import`、`/sim:respond`。
+- 要件と限界値(数値、範囲、合否基準)。
+- 姉妹プラグインからのファイル — 回路・機械・ワイヤー・UX のデータを
+  ハッシュ検証済みの契約としてインポート。
+- 必要に応じて、SPICE ネットリスト、Touchstone ファイル、
+  テストポイント配置。
 
-### フック
+### 何が返ってくるか
 
-セッション開始時に `sim-doctor`、`intake-attachments`、`ensure-llm-profiles` を
-実行します。添付ファイルの取り込みはユーザープロンプト時とセッション停止時にも
-動作します。`inspect_image_with_vision` の応答と `file_editor` の画像表示は
-ポストツールフックで `observations/sim/` に記録され、これらは助言的証拠であり
-決定論的な判定に影響しません。
+- `sim-report`(JSON + 読みやすい Markdown)。チェックごとの判定と
+  その根拠となる数値。
+- 全解析の PNG プロット — サマリー、マージン、波形、基板テストポイント
+  マップ、たわみ曲線。あなたもエージェントも見られます。
+- 「なぜそうなったか」の記録:理由付きの決定、各画像で見たこと、
+  詳細な所感。監査できる記録として残ります。
 
-JSON CLI は `python -m sim` としても利用できます:
+### 姉妹プラグインとの連携
 
-```bash
-python -m sim doctor --warn
-python -m sim validate examples/buck-regulator/buck.sim.json
-python -m sim gates examples/buck-regulator/buck.sim.json
-python -m sim respond examples/buck-regulator/buck.sim-request.json
-```
+`sim` は VibeBB ファミリーの解析担当です:circuit、mech、wire、bard、
+firmware、fpga、prodeng、dashboard、doc、そして `liaison/` 経由で
+マルチエージェント作業を指揮する **ux-creator**。すべてのやり取りは
+共有ワークスペース内の検証済み JSON ファイルです。リポジトリをまたいだ
+インポートは一切ありません。
 
-CLI の出力は JSON です。終了コードは `pass` が 0、`fail` が 1、`unknown` が 3、
-用法・入力エラーが 2。生成物は `out/<name>/` 配下に書き出され、ブリーフの
-投影であるため手編集してはいけません。
+### はじめ方
 
-### 解析
+1. OpenHands(または AgentCanvas)に `sim` プラグインをインストールし、
+   Docker を使えるようにします。プラグインツールは固定の
+   `sim-tools` イメージ内で動きます。
+2. `/sim:doctor` でソルバーの有無を確認します。
+3. エージェントに設計を渡すか、自分で `/sim:run <brief>` を実行します。
+4. エージェントと会話します:ブリーフを書き、解析を実行し、
+   プロットを見て、結論の理由を記録します。
 
-| 解析 | 方式 |
-| --- | --- |
-| SPICE | 無改造 `ngspice` バッチプロセス。宣言された `.meas` 結果をパース |
-| PDN | DC ノード解析、銅温度補正、IPC-2221 トレース許容電流 |
-| 熱 | スカラー抵抗経路または熱ノードネットワーク |
-| WCA | 制限式 AST。EVA、RSS、シード付きモンテカルロ、境界付き SPICE コーナー |
-| EMC / ESD | 宣言データの TVS、配置、臨界長、リファレンス面、デカップリングルール |
-| DFT | テストポイントカバレッジ、パッド径、ピッチ、デバッグヘッダ、バウンダリスキャンルール |
-| FEM | 片持ち梁ボックスの CalculiX サブプロセス + オイラー・ベルヌーイ推定 |
-| RF | Touchstone v1 帯域チェック、任意で KiCad-rfsim/openEMS サブプロセス、マイクロストリップ推定 |
+### 限界
 
-判定を発するのは決定論的な解析コードのみです。`fail` は受理をブロックし、
-`unknown` は未解決のまま残り、ツールが正常終了したことやエージェントの推論で
-`pass` になることはありません。解析推定はラベル付けされ、利用不可のソルバー
-出力の代替にはなりません。
+- モデルは一次近似チェックとソルバー実行であり、認証ではありません。
+  実機の計測の代替にはなりません。
+- `unknown` は「多分大丈夫」ではなく、証拠不足を意味します。
+- オプションの openEMS イメージ(`sim-tools-em`)は未公開です。
 
-### 姉妹連携
+### 安全性
 
-シミュレーションブリーフ（`*.sim.json`）、インポート（`*.connectivity.json`、
-`*.envelope.json`、`*.contract.json`）、リクエスト/レスポンス
-（`*.sim-request.json`、`*.sim-response.json`）は厳格でバージョン管理された
-JSON コントラクトです。各インポートファイルはローカルのミラーモデルで検証され、
-SHA-256 ダイジェストとともに記録されます。未対応または不正な姉妹コンテンツは
-unknown のままです。姉妹の Python パッケージはインポートしません。
+- Docker 専用。解析にネットワークアクセスは不要です。
+- すべてのパスはワークスペース内に限定。シンボリックリンクの脱出は
+  拒否されます。
+- 生成ファイル(レポート、プロット、応答、記録)は保護され、
+  入力から再生成されます。手編集はできません。
+- `pass` を出せるのは決定論的ゲートだけです。AI の判断で結果を
+  引き上げることはできません。
 
-### 開発
-
-```bash
-uv sync --locked
-uv run python scripts/verify_all.py --stage fast
-uv run python scripts/check_plugin_load.py
-uv run python scripts/verify_all.py --stage standard
-actionlint
-uvx zizmor@1.30.1 --format plain .github/workflows
-docker build --target sim-tools -f docker/sim-tools.Dockerfile -t sim-tools:local .
-uv run python scripts/smoke_image.py --image sim-tools:local
-```
-
-実装・デプロイ境界は [operations](docs/operations.md)、
-[architecture](docs/architecture.md)、[Docker notes](docker/README.md) を参照してください。
-
-### ライセンス
-
-BSD-3-Clause（`LICENSE` 参照）。第三者コンポーネントは
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) に一覧があります。
+開発者・CI 向けドキュメントは [docs/](docs/README.md) にあります。

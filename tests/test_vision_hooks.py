@@ -299,3 +299,29 @@ def test_intake_attachments_fails_open_without_events(tmp_path: Path) -> None:
 
     assert result.returncode == 0
     assert not (tmp_path / "intake").exists()
+
+
+def test_record_image_observation_logs_sim_run_plot_paths(tmp_path: Path) -> None:
+    plot = tmp_path / "out" / "demo" / "plots" / "summary.png"
+    plot.parent.mkdir(parents=True)
+    plot.write_bytes(_PNG)
+
+    result = _run(
+        OBSERVATION_SCRIPT,
+        {
+            "working_dir": str(tmp_path),
+            "session_id": "session-2",
+            "tool_name": "sim_run",
+            "tool_input": {"brief": "demo.sim.json"},
+            "tool_response": {
+                "output": json.dumps({"plots": [{"path": "out/demo/plots/summary.png"}]})
+            },
+            "subagent_type": "sim-analyst",
+            "action_id": "act-9",
+        },
+    )
+
+    assert result.returncode == 0
+    records = _image_observations(tmp_path)
+    assert len(records) == 1
+    assert records[0]["image_path"] == str(plot)

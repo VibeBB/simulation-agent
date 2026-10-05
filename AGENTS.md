@@ -1,29 +1,36 @@
 # simulation-agent working agreement
 
-`simulation-agent` is the deterministic engineering-analysis sibling of the
+`simulation-agent` is the deterministic engineering-analysis sister of the
 circuit, mechanical, wire, UX, and bard agents. Its brief schema in
 `src/sim/brief.py` and import mirrors in `src/sim/imports.py` are contract
 sources of truth.
 
 ## Invariants
 
-- Python 3.12+, package `src/sim/`, uv `0.12.22`, hatchling, Pydantic v2, and
+- Python 3.12+, package `src/sim/`, uv `0.12.23`, hatchling, Pydantic v2, and
   MCP. Runtime dependencies are limited to `pydantic>=2` and `mcp>=1.29,<2`.
 - All contracts are frozen and reject extra fields. Missing facts, tools,
   outputs, parse results, or acceptance bounds remain `unknown`.
 - Only deterministic Python gates emit `pass`, `fail`, or `unknown`. Agent
   commentary is advisory and cannot promote a result.
 - Inter-agent exchange is through validated JSON files in the shared workspace.
-  Never import a sibling Python package.
+  Never import a sister Python package. VRP v1 records (`observations/sim/`),
+  SLP v2 liaison (`liaison/`), and deterministic PNG plots plus vision reviews
+  follow the family's shared record protocol.
 - Keep paths inside the workspace; never log or commit secrets.
-- Shared hooks are canonical across the family; change all 9 copies together
-  and update `EXPECTED` in `scripts/check_shared_hooks.py`. `_provenance.py`
-  is shared where present; UX and Production Engineering intentionally omit it.
+- Shared hooks are canonical across the family; change all 11 copies together
+  and update `EXPECTED` in `scripts/check_shared_hooks.py`. `_records.py`,
+  `require_records.py`, and `_provenance.py` are shared where present; UX and
+  Production Engineering intentionally omit `_provenance.py`.
   `intake_attachments.py`, `protect_generated.py`,
-  `record_image_observation.py`, `record_vision_tool_event.py`, and
-  `report_sim_status.py` are intentionally repo-specific.
-- `out/` files and `*.sim-response.json` files are generated artifacts and
-  cannot be edited directly. Fix inputs and regenerate them.
+  `record_image_observation.py`, `record_vision_tool_event.py`,
+  `report_sim_status.py`, and `ux_inbox_notice.py` are intentionally
+  repo-specific.
+- `out/` files, `*.sim-response.json` files, `liaison/*.ux-response.json`, and
+  `observations/sim/*` are generated artifacts and cannot be edited directly.
+  Fix inputs and regenerate them.
+- The launcher is Docker-only (ADR-0008): plugin tools run inside the pinned
+  `sim-tools` image; there is no host or auto mode.
 - Copyleft solvers run as unmodified separate processes. Never link solver
   libraries or import-bind solver code.
 - Code, docs, identifiers, and commit messages are in English.

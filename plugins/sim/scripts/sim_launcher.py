@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve simulation source and run the CLI or MCP server on host or Docker.
+"""Run the sim CLI or MCP server inside the pinned sim-tools Docker image.
 
 Launcher-side verification uses SIM_VERIFY_ATTESTATION=auto|require|off.
 It verifies lock provenance before pulls and on every prewarm; normal use
@@ -286,17 +286,6 @@ def _docker_argv(docker: str, image: str, source: Path | None, argv: list[str]) 
     return command
 
 
-def _host_command(source: Path | None, argv: list[str]) -> list[str]:
-    env_source = dict(os.environ)
-    if source is not None:
-        existing = env_source.get("PYTHONPATH")
-        env_source["PYTHONPATH"] = str(source) + (os.pathsep + existing if existing else "")
-    os.environ.update(env_source)
-    if argv and argv[0] in MODULES:
-        return [sys.executable, "-m", MODULES[argv[0]], *argv[1:]]
-    return [sys.executable, "-m", "sim", *argv]
-
-
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args:
@@ -310,10 +299,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"sim_launcher: {exc}", file=sys.stderr)
         return 2
     mode = os.environ.get("SIM_LAUNCH_MODE", "docker")
-    if mode not in {"auto", "docker", "host"}:
+    if mode != "docker":
         print(
-            f"SIM_LAUNCH_MODE must be auto, docker, or host (got {mode!r}); "
-            "usage: SIM_LAUNCH_MODE=auto|docker|host",
+            "SIM_LAUNCH_MODE host/auto were removed; plugin tools run only in "
+            "the pinned sim-tools image",
             file=sys.stderr,
         )
         return 2
@@ -344,50 +333,43 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"sim_launcher: tools image ready: {image}")
         return 0
-    use_docker = mode == "docker" or (mode == "auto" and docker is not None and image is not None)
-    if use_docker:
-        if docker is None or pin is None or image is None:
-            missing: list[str] = []
-            if docker is None:
-                missing.append("docker is not on PATH")
-            if image is None:
-                missing.append("no image resolved from SIM_TOOLS_IMAGE or the sim image lock")
-            message = f"{'; '.join(missing)}. Set SIM_LAUNCH_MODE=host to run on the host."
-            if "--warn" in args:
-                print(json.dumps({"verdict": "unknown", "warning": message}))
-                return 0
-            print(f"sim_launcher: {message}", file=sys.stderr)
-            return 1
-        try:
-            image = _ensure_image(
-                pin,
-                pull="--warn" not in args,
-                override=override,
+    if docker is None or pin is None or image is None:
+        missing: list[str] = []
+        if docker is None:
+            missing.append("docker is not on PATH; install Docker")
+        if image is None:
+            missing.append(
+                "no image resolved from the sim image lock; run sim_launcher.py prewarm "
+                "or set SIM_TOOLS_IMAGE"
             )
-        except RuntimeError as exc:
-            if "--warn" in args:
-                print(json.dumps({"verdict": "unknown", "warning": str(exc)}))
-                return 0
-            print(f"sim_launcher: {exc}", file=sys.stderr)
-            return 1
-        inner = (
-            ["-m", MODULES[args[0]], *args[1:]]
-            if args[0] in MODULES
-            else [
-                "-m",
-                "sim",
-                *args,
-            ]
-        )
-        os.execvpe(docker, _docker_argv(docker, image, source, inner), os.environ)
-    if source is None:
-        print("sim_launcher: simulation-agent source not found", file=sys.stderr)
+        message = "; ".join(missing)
+        if "--warn" in args:
+            print(json.dumps({"verdict": "unknown", "warning": message}))
+            return 0
+        print(f"sim_launcher: {message}", file=sys.stderr)
         return 1
-    if "--warn" in args:
-        args.remove("--warn")
-        args.append("--warn")
-    command = _host_command(source, args)
-    os.execvpe(command[0], command, os.environ)
+    try:
+        image = _ensure_image(
+            pin,
+            pull="--warn" not in args,
+            override=override,
+        )
+    except RuntimeError as exc:
+        if "--warn" in args:
+            print(json.dumps({"verdict": "unknown", "warning": str(exc)}))
+            return 0
+        print(f"sim_launcher: {exc}", file=sys.stderr)
+        return 1
+    inner = (
+        ["-m", MODULES[args[0]], *args[1:]]
+        if args[0] in MODULES
+        else [
+            "-m",
+            "sim",
+            *args,
+        ]
+    )
+    os.execvpe(docker, _docker_argv(docker, image, source, inner), os.environ)
     return 0
 
 

@@ -5,11 +5,15 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import NoReturn
+from typing import NoReturn, cast
 
 from .brief import load_brief, schema
 from .doctor import run_doctor
 from .imports import write_import_record
+from .liaison import inbox as liaison_inbox
+from .liaison import ux_respond
+from .records import RECORDERS, records_summary
+from .report import sha256_file
 from .requests import load_request
 from .responses import write_response
 from .run import run_simulation
@@ -41,11 +45,29 @@ def _parser() -> argparse.ArgumentParser:
         item.add_argument("--out", default=None)
     report = subparsers.add_parser("report")
     report.add_argument("outdir")
+    plots = subparsers.add_parser("plots")
+    plots.add_argument("outdir")
     do_import = subparsers.add_parser("import")
     do_import.add_argument("file")
     do_import.add_argument("--brief", required=True)
     respond = subparsers.add_parser("respond")
     respond.add_argument("request")
+    respond.add_argument(
+        "--decision-ref",
+        action="append",
+        default=None,
+        dest="decision_refs",
+        help="event_id of a valid decisions.jsonl record (repeatable)",
+    )
+    subparsers.add_parser("ux-inbox")
+    ux_respond = subparsers.add_parser("ux-respond")
+    ux_respond.add_argument("--json", required=True)
+    record = subparsers.add_parser("record")
+    record_sub = record.add_subparsers(dest="record_kind", required=True)
+    for kind in ("decision", "impression", "vision-review"):
+        item = record_sub.add_parser(kind)
+        item.add_argument("--json", required=True)
+    record_sub.add_parser("status")
     subparsers.add_parser("schema")
     return parser
 
@@ -125,6 +147,8 @@ def _respond(args: argparse.Namespace, root: Path) -> int:
         status,
         verdict,
         report_path=(out_dir / "sim-report.json") if report is not None else None,
+        brief_path=brief_path,
+        decision_refs=args.decision_refs,
         reasons=reasons,
     )
     _print(
@@ -164,6 +188,28 @@ def main(argv: list[str] | None = None) -> int:
             report = json.loads(report_path.read_text(encoding="utf-8"))
             _print(report)
             return {"pass": 0, "fail": 1, "unknown": 3}.get(report.get("verdict"), 3)
+        if args.command == "plots":
+            out_dir = workspace_path(args.outdir, root)
+            report_path = workspace_path(out_dir / "sim-report.json", root)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            entries = cast(list[dict[str, str]], report.get("plots", []))
+            missing: list[str] = []
+            for item in entries:
+                try:
+                    plot_path = workspace_path(item["path"], root)
+                except ValueError:
+                    missing.append(item["path"])
+                    continue
+                if not plot_path.is_file() or sha256_file(plot_path) != item["sha256"]:
+                    missing.append(item["path"])
+            _print(
+                {
+                    "plots": entries,
+                    "plot_errors": report.get("plot_errors", []),
+                    "missing": missing,
+                }
+            )
+            return 0
         if args.command == "import":
             brief_path = workspace_path(args.brief, root)
             brief = load_brief(brief_path)
@@ -176,6 +222,26 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "respond":
             return _respond(args, root)
+        if args.command == "ux-inbox":
+            _print(liaison_inbox(root))
+            return 0
+        if args.command == "ux-respond":
+            payload_path = workspace_path(args.json, root)
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("ux-respond payload must be a JSON object")
+            _print(ux_respond(cast(dict[str, object], payload), root))
+            return 0
+        if args.command == "record":
+            if args.record_kind == "status":
+                _print(records_summary(root))
+                return 0
+            payload_path = workspace_path(args.json, root)
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("record payload must be a JSON object")
+            _print(RECORDERS[args.record_kind](cast(dict[str, object], payload), root))
+            return 0
     except (OSError, ValueError, KeyError, TypeError) as exc:
         _print({"verdict": "fail", "detail": str(exc)})
         return 2

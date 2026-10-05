@@ -33,7 +33,21 @@ from _provenance import (
 
 EVENTS_ENV = "SIM_IMAGE_OBSERVATIONS"
 EVENTS_RELATIVE_PATH = Path("observations/sim/image-observations.jsonl")
-OBSERVED_TOOLS = {"file_editor"}
+OBSERVED_TOOLS = {
+    "file_editor",
+    "sim_run",
+    "sim_gates",
+    "sim_respond",
+    "sim_plots",
+    "sim_spice",
+    "sim_pdn",
+    "sim_thermal",
+    "sim_wca",
+    "sim_emc",
+    "sim_dft",
+    "sim_fem",
+    "sim_rf",
+}
 
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
 _IMAGE_PATH = re.compile(r"[^\s\"'<>]+?\.(?:png|jpe?g)", re.IGNORECASE)

@@ -18,6 +18,14 @@ ReportSummary = TypedDict(
 )
 
 
+class PlotInfo(TypedDict):
+    path: str
+    analysis: str
+    title: str
+    checklist: str
+    sha256: str
+
+
 class SimulationReport(TypedDict):
     schema_version: int
     name: str
@@ -27,6 +35,23 @@ class SimulationReport(TypedDict):
     tools: ToolInventory
     imports: list[dict[str, object]]
     files: dict[str, object]
+    plots: list[PlotInfo]
+    plot_errors: list[str]
+
+
+CHECKLIST_HINTS = {
+    "sim-summary": "does the verdict mix match expectation?",
+    "margin-chart": "which checks sit near a bound; are the units sane?",
+    "spice-waveform": (
+        "ringing/overshoot/settling; does the curve match the circuit "
+        "intent; are measure lines on the curve?"
+    ),
+    "rf-sparams": "match across each band, resonances, and S21 loss",
+    "dft-testpoints": "spacing, side, and coverage holes",
+    "fem-deflection": "deflection shape and magnitude versus the limit",
+    "intake-image": "does the attachment support the value it was cited for?",
+    "sibling-render": "does the sibling render agree with the imported facts?",
+}
 
 
 def sha256_file(path: Path) -> str:
@@ -53,6 +78,15 @@ def render_markdown(report: SimulationReport) -> str:
         lines.append(
             f"- {name}: {status} ({data.get('version') or data.get('detail') or 'unknown'})"
         )
+    if report.get("plots") or report.get("plot_errors"):
+        lines.extend(["", "## Plots", ""])
+        for item in report.get("plots", []):
+            relative = item["path"].split("/", 2)[-1] if "/" in item["path"] else item["path"]
+            lines.append(
+                f"- [{item['title']}]({relative}) — {CHECKLIST_HINTS.get(item['checklist'], '')}"
+            )
+        for error in report.get("plot_errors", []):
+            lines.append(f"- plot not generated: {error}")
     return "\n".join(lines) + "\n"
 
 
@@ -63,10 +97,12 @@ def write_outputs(
     tools: ToolInventory,
     out_dir: Path,
     adapter_files: dict[str, object] | None = None,
+    plots: list[PlotInfo] | None = None,
+    plot_errors: list[str] | None = None,
 ) -> SimulationReport:
     out_dir.mkdir(parents=True, exist_ok=True)
     report: SimulationReport = {
-        "schema_version": 1,
+        "schema_version": 2,
         "name": brief.name,
         "verdict": aggregate(checks),
         "summary": {
@@ -78,6 +114,8 @@ def write_outputs(
         "tools": tools,
         "imports": [],
         "files": adapter_files or {},
+        "plots": plots or [],
+        "plot_errors": plot_errors or [],
     }
     imports_path = out_dir / "imports.json"
     if not imports_path.is_file():

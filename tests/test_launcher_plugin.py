@@ -100,8 +100,8 @@ def test_plugin_assets_match_v01_inventory() -> None:
         "sim-review",
         "sim-liaison",
     }
-    assert len(list((plugin / "commands").glob("*.md"))) == 13
-    assert len(list((plugin / "skills").glob("*/SKILL.md"))) == 10
+    assert len(list((plugin / "commands").glob("*.md"))) == 16
+    assert len(list((plugin / "skills").glob("*/SKILL.md"))) == 11
     for agent in (plugin / "agents").glob("*.md"):
         header = agent.read_text(encoding="utf-8").split("---", 2)[1]
         assert "hooks:" in header
@@ -123,6 +123,9 @@ def test_plugin_assets_match_v01_inventory() -> None:
             "gates": "gates",
             "import": "import",
             "respond": "respond",
+            "records": "record",
+            "ux-inbox": "ux-inbox",
+            "plots": "plots",
         }[command_name]
         assert f"sim_launcher.py {cli_command}" in text
         if command_name in {"spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf"}:

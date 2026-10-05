@@ -17,6 +17,7 @@ EXPECTED_SKILLS = {
     "sim-rf-openems",
     "sim-sibling-cooperation",
     "sim-spice",
+    "sim-vision-review",
     "sim-wca",
     "sim-workflow",
 }
@@ -34,16 +35,21 @@ EXPECTED_COMMANDS = {
     "gates",
     "import",
     "respond",
+    "records",
+    "ux-inbox",
+    "plots",
 }
 EXPECTED_HOOKS = {
     "session_start": {
         "sim-doctor",
         "intake-attachments",
         "ensure-llm-profiles",
+        "require-records",
+        "ux-inbox-notice",
     },
     "user_prompt_submit": {"intake-attachments"},
     "pre_tool_use": {"protect-generated", "safety-rail"},
-    "stop": {"sim-report-status", "intake-attachments"},
+    "stop": {"require-records", "sim-report-status", "intake-attachments"},
     "post_tool_use": {"record-image-observation", "record-vision-tool-event"},
 }
 
@@ -114,7 +120,7 @@ def main() -> int:
         print("\n".join(failures), file=sys.stderr)
         return 1
     print(
-        "plugin-load OK: 3 agents, 13 commands, 10 skills, "
+        "plugin-load OK: 3 agents, 16 commands, 11 skills, "
         "session-start/user-prompt-submit/pre-tool-use/stop/post-tool-use hooks"
     )
     return 0

@@ -92,5 +92,10 @@ def test_response_rejects_symlinked_output(tmp_path: Path) -> None:
 def test_accepted_response_requires_hashed_report() -> None:
     with pytest.raises(ValueError, match="require a hashed report"):
         SimulationResponse.model_validate(
-            {"request_id": "SIM-46", "status": "accepted", "verdict": "pass"}
+            {
+                "request_id": "SIM-46",
+                "request_sha256": "0" * 64,
+                "status": "accepted",
+                "verdict": "pass",
+            }
         )

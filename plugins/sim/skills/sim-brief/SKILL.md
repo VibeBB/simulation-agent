@@ -39,5 +39,5 @@ The brief schema validates declarations, not their engineering adequacy. Formula
 
 - Do not guess geometry, operating points, material properties, ratings, or acceptance bounds.
 - Declare a threshold for every result that must be judged; an unbounded measurement remains `unknown`.
-- Do not treat a sibling connectivity import as a connector-to-net map; explicitly declare EMC interface nets.
+- Do not treat a sister connectivity import as a connector-to-net map; explicitly declare EMC interface nets.
 - Unsupported features and missing solver output remain `unknown`, not approximated values.

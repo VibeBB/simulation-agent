@@ -15,11 +15,9 @@ stay below the 16 MiB limit.
 The CLI workspace is `OPENHANDS_PROJECT_DIR`, falling back to the current
 directory. Relative input and output paths must resolve within that workspace.
 Paths that traverse symlinks are rejected.
-The plugin launcher accepts `SIM_LAUNCH_MODE=docker|host|auto` (default
-`docker`) and `SIM_TOOLS_IMAGE`. Docker mode requires Docker and a resolvable
-image; if either is unavailable, set `SIM_LAUNCH_MODE=host` to run from the
-resolved source tree. Host mode reports missing solver tools as `unknown`.
-Auto mode retains Docker-when-available behavior and otherwise uses the host.
+The plugin launcher is Docker-only (ADR-0008): it requires Docker and a
+resolvable `SIM_TOOLS_IMAGE` and fails closed otherwise; there is no host or
+auto mode.
 
 | Variable | Purpose |
 | --- | --- |

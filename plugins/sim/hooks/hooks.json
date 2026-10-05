@@ -17,6 +17,16 @@
           "type": "command",
           "name": "ensure-llm-profiles",
           "command": "p=$(for c in \"${SIM_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/sim\" \"${HOME:-}/.agents/plugins/sim\" \"${HOME:-}/.openhands/plugins/installed/sim\"; do [ -f \"$c/hooks/scripts/ensure_llm_profiles.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/ensure_llm_profiles.py\""
+        },
+        {
+          "type": "command",
+          "name": "ux-inbox-notice",
+          "command": "p=$(for c in \"${SIM_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/sim\" \"${HOME:-}/.agents/plugins/sim\" \"${HOME:-}/.openhands/plugins/installed/sim\"; do [ -f \"$c/hooks/scripts/ux_inbox_notice.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/ux_inbox_notice.py\""
+        },
+        {
+          "type": "command",
+          "name": "require-records",
+          "command": "p=$(for c in \"${SIM_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/sim\" \"${HOME:-}/.agents/plugins/sim\" \"${HOME:-}/.openhands/plugins/installed/sim\"; do [ -f \"$c/hooks/scripts/require_records.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/require_records.py\" session-start"
         }
       ]
     }
@@ -61,6 +71,11 @@
       "hooks": [
         {
           "type": "command",
+          "name": "require-records",
+          "command": "p=$(for c in \"${SIM_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/sim\" \"${HOME:-}/.agents/plugins/sim\" \"${HOME:-}/.openhands/plugins/installed/sim\"; do [ -f \"$c/hooks/scripts/require_records.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/require_records.py\" stop"
+        },
+        {
+          "type": "command",
           "name": "sim-report-status",
           "command": "p=$(for c in \"${SIM_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/sim\" \"${HOME:-}/.agents/plugins/sim\" \"${HOME:-}/.openhands/plugins/installed/sim\"; do [ -f \"$c/hooks/scripts/report_sim_status.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/report_sim_status.py\""
         },
@@ -84,7 +99,7 @@
       ]
     },
     {
-      "matcher": "file_editor",
+      "matcher": "file_editor|sim_run|sim_gates|sim_respond|sim_plots|sim_spice|sim_pdn|sim_thermal|sim_wca|sim_emc|sim_dft|sim_fem|sim_rf",
       "hooks": [
         {
           "type": "command",
