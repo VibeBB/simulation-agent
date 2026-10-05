@@ -9,6 +9,7 @@ and a selection that matches no commands exits successfully.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -127,11 +128,22 @@ def main() -> int:
     )
     args = parser.parse_args()
     if args.list:
-        for stage, commands in STAGES.items():
-            print(f"{stage}:")
-            for command in commands:
-                group = command.group or "-"
-                print(f"  [{group}] " + " ".join(command.argv))
+        print(
+            json.dumps(
+                {
+                    stage: [
+                        {
+                            "command": list(command.argv),
+                            "barrier": command.barrier,
+                            "group": command.group,
+                        }
+                        for command in stage_commands
+                    ]
+                    for stage, stage_commands in STAGES.items()
+                },
+                indent=2,
+            )
+        )
         return 0
     try:
         commands = _select(STAGES[args.stage], args.group, args.match, args.shard)
