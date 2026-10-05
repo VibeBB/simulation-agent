@@ -25,9 +25,16 @@ import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from .workspace import workspace_path, workspace_root
 
@@ -331,6 +338,64 @@ def record_vision_review(payload: Mapping[str, Any], root: Path | None = None) -
     else:
         body["image_sha256"] = None
     return _append("vision_review", body, base)
+
+
+_ENVELOPE_KEYS = frozenset(
+    {"schema_version", "kind", "plugin", "sequence", "event_id", "recorded_at"}
+)
+
+_RECORD_MODELS: dict[str, tuple[type[BaseModel], str]] = {
+    "decision": (DecisionRecord, "decisions.jsonl"),
+    "stage_impression": (StageImpression, "impressions.jsonl"),
+    "vision_review": (VisionReview, "vision-reviews.jsonl"),
+}
+
+
+def _event_id(kind: str, sequence: int, body: dict[str, Any]) -> str:
+    identity = {"kind": kind, "sequence": sequence, **body}
+    return hashlib.sha256(
+        json.dumps(identity, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def valid_event_ids(root: Path | None = None) -> dict[str, set[str]]:
+    """event_ids whose record lines pass the full model and identity checks.
+
+    Parity with the Stop-hook mirror (``record_errors``): envelope fields,
+    kind/plugin, and every field/prose rule are re-validated, and the
+    event_id is recomputed from the record body so forged lines never
+    validate.
+    """
+    base = (root or workspace_root()).resolve()
+    directory = records_dir(base)
+    valid: dict[str, set[str]] = {}
+    for kind, (model, filename) in _RECORD_MODELS.items():
+        ids: set[str] = set()
+        path = directory / filename
+        if path.is_file():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    record = cast(object, json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(record, dict):
+                    continue
+                entry = cast(dict[str, Any], record)
+                try:
+                    model.model_validate(entry)
+                except (ValidationError, ValueError):
+                    continue
+                sequence = entry.get("sequence")
+                event_id = entry.get("event_id")
+                if not isinstance(sequence, int) or not isinstance(event_id, str):
+                    continue
+                body = {key: value for key, value in entry.items() if key not in _ENVELOPE_KEYS}
+                if _event_id(kind, sequence, body) == event_id:
+                    ids.add(event_id)
+        valid[kind] = ids
+    return valid
 
 
 RECORDERS = {

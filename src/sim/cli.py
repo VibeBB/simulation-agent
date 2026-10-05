@@ -52,6 +52,13 @@ def _parser() -> argparse.ArgumentParser:
     do_import.add_argument("--brief", required=True)
     respond = subparsers.add_parser("respond")
     respond.add_argument("request")
+    respond.add_argument(
+        "--decision-ref",
+        action="append",
+        default=None,
+        dest="decision_refs",
+        help="event_id of a valid decisions.jsonl record (repeatable)",
+    )
     subparsers.add_parser("ux-inbox")
     ux_respond = subparsers.add_parser("ux-respond")
     ux_respond.add_argument("--json", required=True)
@@ -141,6 +148,7 @@ def _respond(args: argparse.Namespace, root: Path) -> int:
         verdict,
         report_path=(out_dir / "sim-report.json") if report is not None else None,
         brief_path=brief_path,
+        decision_refs=args.decision_refs,
         reasons=reasons,
     )
     _print(

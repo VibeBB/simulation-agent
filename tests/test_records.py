@@ -352,3 +352,26 @@ def test_records_policy_matches_core() -> None:
     for event, mode in (("session_start", "session-start"), ("stop", "stop")):
         commands = [h["command"] for g in hooks[event] for h in g["hooks"]]
         assert any(f'require_records.py" {mode}' in c for c in commands)
+
+
+def test_valid_event_ids_parity_with_hook(workspace: Path) -> None:
+    """valid_event_ids must accept exactly the lines record_errors accepts."""
+    decision = dict(records.record_decision(_decision("out/buck/sim-report.json"))["record"])
+    assert not HOOK_RECORDS.record_errors("decision", decision)
+    event_id = str(decision["event_id"])
+    assert event_id in records.valid_event_ids(workspace)["decision"]
+    log = workspace / "observations" / "sim" / "decisions.jsonl"
+    log.write_text(json.dumps(decision) + "\n", encoding="utf-8")
+    assert event_id in records.valid_event_ids(workspace)["decision"]
+    # a mutated line fails the hook mirror AND drops out of valid_event_ids
+    forged = dict(decision)
+    forged["options"] = []
+    assert HOOK_RECORDS.record_errors("decision", forged)
+    log.write_text(json.dumps(forged) + "\n", encoding="utf-8")
+    assert event_id not in records.valid_event_ids(workspace)["decision"]
+    # a well-formed line whose event_id does not recompute is refused too
+    valid = dict(decision)
+    valid["event_id"] = hashlib.sha256(b"forged").hexdigest()
+    assert not HOOK_RECORDS.record_errors("decision", valid)
+    log.write_text(json.dumps(valid) + "\n", encoding="utf-8")
+    assert str(valid["event_id"]) not in records.valid_event_ids(workspace)["decision"]

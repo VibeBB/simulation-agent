@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -386,3 +388,109 @@ def test_notice_hook_silent_when_empty(tmp_path: Path) -> None:
     )
     assert result.returncode == 0
     assert result.stdout.strip() == ""
+
+
+def test_request_schema_is_strict(tmp_path: Path) -> None:
+    path = _request(tmp_path, "ux-sim-001")
+    payload = cast(dict[str, object], json.loads(path.read_text(encoding="utf-8")))
+    for key in ("inputs", "depends_on", "expected_deliverables", "acceptance"):
+        missing = {**payload}
+        del missing[key]
+        path.write_text(json.dumps(missing), encoding="utf-8")
+        with pytest.raises(ValueError):
+            load_request(path)
+    for key in ("expected_deliverables", "acceptance", "requested_changes"):
+        blank = {**payload, key: [""]}
+        path.write_text(json.dumps(blank), encoding="utf-8")
+        with pytest.raises(ValueError):
+            load_request(path)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    assert load_request(path).id == "ux-sim-001"
+
+
+def test_depends_on_accepts_any_responder(tmp_path: Path) -> None:
+    _request(tmp_path, "aaa-dep")
+    _request(tmp_path, "ux-sim-001", depends_on=["aaa-dep"])
+    before = cast(list[dict[str, object]], inbox(tmp_path)["requests"])
+    assert before[0]["state"] == "blocked"
+    response_path(tmp_path, "aaa-dep").write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "system": "ux-creator",
+                "request": "aaa-dep",
+                "responder": "mech",
+                "status": "accepted",
+            }
+        ),
+        encoding="utf-8",
+    )
+    after = cast(list[dict[str, object]], inbox(tmp_path)["requests"])
+    assert after[0]["state"] == "new"
+
+
+def test_inbox_skips_invalid_other_target(tmp_path: Path) -> None:
+    (tmp_path / "liaison").mkdir()
+    other = tmp_path / "liaison" / "not-ours.ux-request.json"
+    other.write_text(
+        json.dumps({"target_agent": "mech", "garbage": True}),
+        encoding="utf-8",
+    )
+    ours = tmp_path / "liaison" / "ours.ux-request.json"
+    ours.write_text(json.dumps({"target_agent": "sim"}), encoding="utf-8")
+    result = inbox(tmp_path)
+    malformed = cast(list[dict[str, str]], result["malformed"])
+    assert len(malformed) == 1
+    assert "ours" in malformed[0]["path"]
+
+
+def test_forged_record_ref_is_refused(tmp_path: Path) -> None:
+    _request(tmp_path, "ux-sim-001")
+    decision_ref, _ = _records(tmp_path)
+    log = tmp_path / "observations" / "sim" / "decisions.jsonl"
+    forged = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+    forged["rationale"] = "forged rationale keeps a forged event id"
+    forged["event_id"] = hashlib.sha256(b"forged").hexdigest()
+    log.write_text(
+        log.read_text(encoding="utf-8") + json.dumps(forged) + "\n",
+        encoding="utf-8",
+    )
+    payload = _done_payload(tmp_path, "ux-sim-001")
+    with pytest.raises(ValueError, match=re.escape("is not a decisions.jsonl event_id")):
+        ux_respond({**payload, "decision_refs": [str(forged["event_id"])]}, tmp_path)
+    result = ux_respond({**payload, "decision_refs": [decision_ref]}, tmp_path)
+    assert result["status"] == "done"
+
+
+def test_cli_respond_decision_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENHANDS_PROJECT_DIR", str(tmp_path))
+    _request(tmp_path, "ux-sim-001")
+    decision_ref, _ = _records(tmp_path)
+    (tmp_path / "request.sim-request.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "request_id": "r1",
+                "brief_path": "brief.json",
+                "kind": "any",
+                "from_system": "circuit",
+                "question": "does the response carry a decision ref?",
+            }
+        ),
+        encoding="utf-8",
+    )
+    # brief is missing -> needs_info response; the flag parses and the
+    # response file is written
+    assert cli.main(["respond", "request.sim-request.json", "--decision-ref", decision_ref]) == 0
+    response = json.loads((tmp_path / "request.sim-response.json").read_text(encoding="utf-8"))
+    assert cast(dict[str, object], response)["status"] == "needs_info"
+
+
+def test_write_response_rejects_unknown_decision_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from sim.responses import write_response
+
+    monkeypatch.setenv("OPENHANDS_PROJECT_DIR", str(tmp_path))
+    with pytest.raises(ValueError, match=re.escape("not a decisions.jsonl event_id")):
+        write_response(tmp_path / "r.json", "r1", "needs_info", decision_refs=["0" * 64])

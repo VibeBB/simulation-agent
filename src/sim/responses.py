@@ -52,10 +52,9 @@ def write_response(
     reasons: list[str] | None = None,
 ) -> Path:
     if decision_refs:
-        from .liaison import event_ids
-        from .records import records_dir
+        from .records import valid_event_ids
 
-        valid = event_ids(records_dir(workspace_root()), "decisions.jsonl")
+        valid = valid_event_ids(workspace_root())["decision"]
         for ref in decision_refs:
             if ref not in valid:
                 raise ValueError(f"decision_ref {ref} is not a decisions.jsonl event_id")

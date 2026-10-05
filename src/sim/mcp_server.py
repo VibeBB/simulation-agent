@@ -146,7 +146,10 @@ def tool_specs() -> list[types.Tool]:
         },
         "sim_respond": {
             "type": "object",
-            "properties": {"request": {"type": "string"}},
+            "properties": {
+                "request": {"type": "string"},
+                "decision_refs": {"type": "array", "items": {"type": "string"}},
+            },
             "required": ["request"],
             "additionalProperties": False,
         },
@@ -382,6 +385,7 @@ def dispatch_tool(name: str, arguments: dict[str, object]) -> dict[str, object]:
             verdict,
             out_dir / "sim-report.json",
             brief_path,
+            cast(list[str] | None, arguments.get("decision_refs")),
             [] if status != "needs_info" else ["analysis verdict is unknown"],
         )
         return {"status": status, "verdict": verdict, "response": str(path)}

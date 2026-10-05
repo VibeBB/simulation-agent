@@ -14,9 +14,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, cast
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .records import records_dir, sha256_file, tree_sha256
+from .records import records_dir, sha256_file, tree_sha256, valid_event_ids
 from .workspace import reject_symlinks, workspace_path, workspace_root
 
 SCHEMA_VERSION = 2
@@ -70,17 +70,17 @@ class UXRequest(_Strict):
     purpose: str = Field(min_length=10)
     rationale: str = Field(min_length=20)
     requested_changes: list[str] = Field(min_length=1)
-    inputs: list[InputRef] = Field(default_factory=lambda: list[InputRef]())
+    inputs: list[InputRef]
     expected_deliverables: list[str] = Field(min_length=1)
     acceptance: list[str] = Field(min_length=1)
-    depends_on: list[str] = Field(default_factory=list)
+    depends_on: list[str]
     created_at: AwareDatetime
 
-    @field_validator("requested_changes")
+    @field_validator("requested_changes", "expected_deliverables", "acceptance")
     @classmethod
-    def _changes_non_empty(cls, value: list[str]) -> list[str]:
+    def _entries_non_empty(cls, value: list[str]) -> list[str]:
         if any(not item.strip() for item in value):
-            raise ValueError("requested_changes entries must be non-empty")
+            raise ValueError("list entries must be non-empty strings")
         return value
 
     @field_validator("depends_on")
@@ -91,14 +91,11 @@ class UXRequest(_Strict):
                 raise ValueError(f"depends_on id {item!r} is not a slug")
         return value
 
-    @field_validator("rationale")
-    @classmethod
-    def _high_risk_cites_job(cls, value: str) -> str:
-        return value
-
-    @property
-    def job_id_ok(self) -> bool:
-        return self.risk != "high" or _JOB_ID.search(self.rationale) is not None
+    @model_validator(mode="after")
+    def _high_risk_cites_job(self) -> UXRequest:
+        if self.risk == "high" and _JOB_ID.search(self.rationale) is None:
+            raise ValueError("high-risk requests must cite a UX job id in the rationale")
+        return self
 
 
 class UXResponse(_Strict):
@@ -138,8 +135,6 @@ def load_request(path: Path) -> UXRequest:
     request = UXRequest.model_validate(json.loads(path.read_text(encoding="utf-8")))
     if request.id != _stem(path):
         raise ValueError(f"request id {request.id!r} != file stem {_stem(path)!r}")
-    if not request.job_id_ok:
-        raise ValueError("high-risk requests must cite a UX job id in the rationale")
     return request
 
 
@@ -149,6 +144,25 @@ def _load_response(path: Path) -> UXResponse | None:
     except (OSError, json.JSONDecodeError, ValueError):
         return None
     return response
+
+
+def _is_any_response(path: Path, request_id: str) -> bool:
+    """Minimal cross-responder check for depends_on: any valid v2 ux-response."""
+    try:
+        data = cast(object, json.loads(path.read_text(encoding="utf-8")))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    entry = cast(dict[str, object], data)
+    return (
+        entry.get("schema_version") == SCHEMA_VERSION
+        and entry.get("system") == SYSTEM
+        and entry.get("request") == request_id
+        and isinstance(entry.get("responder"), str)
+        and bool(str(entry["responder"]))
+        and entry.get("status") in STATUSES
+    )
 
 
 def _input_hash(entry: InputRef, root: Path) -> tuple[str | None, str | None]:
@@ -283,10 +297,10 @@ def ux_respond(payload: dict[str, object], root: Path | None = None) -> dict[str
     decision_refs = [item for item in decision_raw if isinstance(item, str)]
     impression_refs = [item for item in impression_raw if isinstance(item, str)]
     directory = records_dir(base)
-    decision_ids = event_ids(directory, "decisions.jsonl")
-    impression_ids = event_ids(directory, "impressions.jsonl") | event_ids(
-        directory, "vision-reviews.jsonl"
-    )
+    del directory
+    valid = valid_event_ids(base)
+    decision_ids = valid["decision"]
+    impression_ids = valid["stage_impression"] | valid["vision_review"]
     for ref in decision_refs:
         if ref not in decision_ids:
             raise ValueError(f"decision_ref {ref} is not a decisions.jsonl event_id")
@@ -361,9 +375,7 @@ def _request_state(
     if answered:
         return "answered", problems, cast(UXResponse, response).status
     for dep in request.depends_on:
-        dep_response = _load_response(response_path(root, dep))
-        dep_answered = dep_response is not None and dep_response.request == dep
-        if not dep_answered:
+        if not _is_any_response(response_path(root, dep), dep):
             problems.append(f"depends_on {dep} has no valid response")
     if problems:
         return "blocked", problems, None
@@ -381,11 +393,26 @@ def inbox(root: Path | None = None) -> dict[str, object]:
     }
     for path in sorted(directory.glob("*.ux-request.json")) if directory.is_dir() else []:
         try:
-            request = load_request(path)
-        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            raw = cast(object, json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             malformed.append({"path": str(path), "error": str(exc)})
             continue
-        if request.target_agent != RESPONDER:
+        if (
+            isinstance(raw, dict)
+            and isinstance(cast(dict[str, object], raw).get("target_agent"), str)
+            and cast(dict[str, object], raw)["target_agent"] != RESPONDER
+        ):
+            continue
+        try:
+            request = UXRequest.model_validate(raw)
+        except ValueError as exc:
+            malformed.append({"path": str(path), "error": str(exc)})
+            continue
+        try:
+            if request.id != _stem(path):
+                raise ValueError(f"request id {request.id!r} != file stem {_stem(path)!r}")
+        except ValueError as exc:
+            malformed.append({"path": str(path), "error": str(exc)})
             continue
         state, problems, response_status = _request_state(path, request, base, answered_ids)
         requests.append(
