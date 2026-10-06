@@ -85,6 +85,8 @@ def test_wire_contract_import_extracts_load_and_wire_properties(tmp_path: Path) 
                 "contract_id": "WH-1",
                 "name": "harness",
                 "revision": "A",
+                "drawing": {"legal_owner": "VibeBB", "language": "en"},
+                "simulation": {"rails": [], "response_path": "sim/WH-1.pdn.sim-response.json"},
                 "connectors": [
                     {
                         "id": connector,
