@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from pathlib import Path
 from typing import Literal, cast
 
@@ -62,6 +63,38 @@ class ConnectivitySource(StrictModel):
     system: Literal["circuit", "csv", "kbl", "vec"] = "circuit"
     connectors: list[ConnectorSource] = Field(default_factory=lambda: list[ConnectorSource]())
     nets: list[NetSource] = Field(default_factory=lambda: list[NetSource]())
+
+
+class FirmwarePowerMode(StrictModel):
+    id: str = Field(min_length=1)
+    kind: Literal["run", "idle", "sleep", "deep_sleep"]
+    current_a: float = Field(gt=0)
+    duty: float = Field(gt=0, le=1)
+
+
+class FirmwarePowerSource(StrictModel):
+    """Mirror of firmware-agent ``<name>.fw-power.json`` (``firmware_power``)."""
+
+    schema_version: Literal[1] = 1
+    system: Literal["firmware"] = "firmware"
+    artifact_kind: Literal["firmware_power"] = "firmware_power"
+    design: str = Field(min_length=1)
+    contract_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    mcu_ref: str = Field(min_length=1)
+    supply_net: str = Field(min_length=1)
+    peak_current_a: float = Field(gt=0)
+    average_current_a: float = Field(gt=0)
+    modes: list[FirmwarePowerMode] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_totals(self) -> FirmwarePowerSource:
+        peak = max(mode.current_a for mode in self.modes)
+        average = sum(mode.current_a * mode.duty for mode in self.modes)
+        if not math.isclose(self.peak_current_a, peak, rel_tol=1e-9):
+            raise ValueError("peak_current_a must equal the largest mode current")
+        if not math.isclose(self.average_current_a, average, rel_tol=1e-9):
+            raise ValueError("average_current_a must equal the duty-weighted mode current")
+        return self
 
 
 class EnvelopeAnchor(StrictModel):
@@ -348,9 +381,23 @@ def import_source(file: str | Path, workspace: Path) -> dict[str, object]:
             ],
             "nets": [net.model_dump() for net in source.nets],
         }
+    elif suffixes.endswith(".fw-power.json"):
+        source = FirmwarePowerSource.model_validate_json(payload)
+        system = "firmware"
+        extracted = {
+            "nets": [
+                {
+                    "ref": source.supply_net,
+                    "current_a": source.peak_current_a,
+                    "average_current_a": source.average_current_a,
+                    "mcu_ref": source.mcu_ref,
+                }
+            ]
+        }
     else:
         raise ValueError(
-            "import filename must end in .connectivity.json, .envelope.json, or .contract.json"
+            "import filename must end in .connectivity.json, .envelope.json, .contract.json, "
+            "or .fw-power.json"
         )
     return {
         "system": system,

@@ -56,6 +56,15 @@ sha256 in `imports.json` written by `write_import_record`.
 handoff) sections as opaque objects so current harness contracts import; sim
 reads neither — the PDN loops arrive as a separate `*.sim.json` brief.
 
+`*.fw-power.json` (`FirmwarePowerSource`, firmware-agent `firmware power`)
+carries the MCU draw on its supply net: `supply_net`, `peak_current_a` (the
+largest mode current) and `average_current_a` (duty-weighted), both
+re-checked against `modes[]`. A PDN load with
+`current_a: "import:firmware:<net>"` draws the imported peak current; the
+import must be declared with `system: "firmware"`, and a net the import does
+not carry is `unknown`. `import:<net>` keeps reading circuit
+`*.connectivity.json` nets.
+
 ## `*.sim-request.json` — v1 sister request (schema_version 1)
 
 `SimulationRequest`: `schema_version`, `from_system` (circuit, mech, wire,
