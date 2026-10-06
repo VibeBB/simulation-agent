@@ -33,7 +33,15 @@ FAST_COMMANDS = [
     Command(("uv", "run", "ruff", "format", "--check", "."), group="lint"),
     Command(("uv", "run", "pyright"), group="lint"),
     Command(
-        ("uv", "run", "pytest", "--cov", "--cov-report=term-missing:skip-covered"),
+        (
+            "uv",
+            "run",
+            "python",
+            "scripts/structural_coverage.py",
+            "run",
+            "--json",
+            "out/structural-coverage.json",
+        ),
         group="unit",
     ),
     Command(("uv", "run", "python", "scripts/check_shared_hooks.py"), group="lint"),
