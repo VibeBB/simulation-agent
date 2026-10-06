@@ -99,3 +99,32 @@ find what they missed.
 - **Mutation testing**: a mutant (a flipped comparison, a removed condition)
   that survives the suite marks an assertion that is missing even though the
   line is covered. Mutation runs are advisory evidence, not a CI gate.
+
+## Reference suite
+
+`tests/test_gate_boundaries.py` applies these techniques to the gates in
+`src/sim/analysis.py` and `src/sim/gates.py`, following the family pattern
+set by wire-agent:
+
+- 3-value boundaries, with `math.nextafter` for float limits, for PDN drop
+  (including the 1e-12 V solver tolerance), wire and via ampacity, junction
+  temperature (scalar path and thermal network), derating margin, the WCA
+  output window and vertex budget, every ESD contact-rating level, TVS
+  distance, clamp voltage, critical length, decoupling count and distance,
+  DFT coverage, pad diameter and pitch, and the analytic FEM safety factor.
+  Limits that depend on a computed value (ampacity, safety factor) are put
+  exactly on the measured value, so the test pins the gate comparison
+  rather than a re-derived formula;
+- decision tables for `max_drop_v` x `max_drop_pct` x `min_v`, the four ESD
+  protection rules (each flips the verdict alone, MC/DC style), reference
+  plane continuity, DFT required-net modes, debug header and boundary scan,
+  and `aggregate`;
+- fail-closed cases: non-finite measurements, missing thermal path terms,
+  unmapped network components, floating PDN nodes, failing WCA expressions,
+  missing ESD level, protected device or net voltage, and DFT without
+  required nets or test points;
+- a property: microstrip impedance decreases monotonically in width across
+  both branches of the Hammerstad formula.
+
+CI's verify job has no ngspice or CalculiX, so the floors are measured with
+both removed from `PATH`.
