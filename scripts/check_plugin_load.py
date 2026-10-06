@@ -33,6 +33,7 @@ EXPECTED_COMMANDS = {
     "fem",
     "rf",
     "ruggedness",
+    "lifetime",
     "gates",
     "import",
     "respond",

@@ -38,7 +38,7 @@ request and brief by sha256 and may carry validated `decision_refs`
 
 | Sister | Inbound to sim | Outbound from sim |
 | --- | --- | --- |
-| circuit | connectivity/netlist exports, element ratings | margin + SPICE reports, request responses |
+| circuit | connectivity/netlist exports, element ratings, `thermal` and `lifetime` briefs + requests | margin + SPICE, thermal and lifetime reports, request responses |
 | mech | envelope/anchor data, material facts, `ruggedness` briefs + requests (`mech sim-request`) | FEM/thermal/ruggedness reports |
 | wire | `WireContract` harness/connector data | EMC/DFT findings |
 | ux-creator | SLP v2 `*.ux-request.json` | `*.ux-response.json`, report artifacts |

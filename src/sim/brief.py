@@ -607,6 +607,39 @@ class RuggednessSection(Model):
         return self
 
 
+class LifetimeStress(Model):
+    temperature_c: float = Field(gt=-273.15)
+    fraction: float = Field(gt=0, le=1)
+
+
+class LifetimePart(Model):
+    ref: str = Field(min_length=1)
+    rated_life_h: float = Field(gt=0)
+    rated_temp_c: float = Field(gt=-273.15)
+    activation_energy_ev: float = Field(gt=0)
+    profile: list[LifetimeStress] = Field(min_length=1)
+    required_life_h: float = Field(gt=0)
+    source: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_profile(self) -> LifetimePart:
+        if abs(sum(stress.fraction for stress in self.profile) - 1) > 1e-9:
+            raise ValueError("lifetime profile fractions must sum to 1")
+        return self
+
+
+class LifetimeSection(Model):
+    model: Literal["arrhenius"] = "arrhenius"
+    parts: list[LifetimePart] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_refs(self) -> LifetimeSection:
+        refs = [part.ref for part in self.parts]
+        if len(set(refs)) != len(refs):
+            raise ValueError("lifetime part refs must be unique")
+        return self
+
+
 class SimulationBrief(Model):
     schema_version: Literal[1]
     name: str = Field(pattern=r"^[A-Za-z0-9_-]+$")
@@ -621,6 +654,7 @@ class SimulationBrief(Model):
     fem: FemSection | None = None
     rf: RfSection | None = None
     ruggedness: RuggednessSection | None = None
+    lifetime: LifetimeSection | None = None
 
     @model_validator(mode="after")
     def require_section(self) -> SimulationBrief:
@@ -636,6 +670,7 @@ class SimulationBrief(Model):
                 "fem",
                 "rf",
                 "ruggedness",
+                "lifetime",
             )
         ):
             raise ValueError("at least one analysis section is required")

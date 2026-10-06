@@ -45,6 +45,17 @@ one analysis section:
   the 50/12.5/2.5/1.0 mm probe; dust digits 5/6 and any water digit are
   `unknown` (IEC 60529 test required), and a water digit with unsealed
   openings is `fail`.
+- `lifetime`: `LifetimeSection` — `model` `arrhenius`, `parts[]` of
+  `LifetimePart` (`ref`, `rated_life_h` at `rated_temp_c`, explicit
+  `activation_energy_ev`, `profile[]` of `LifetimeStress`
+  `temperature_c`/`fraction` summing to 1, `required_life_h`, `source`).
+  Each step lives `L_rated·exp(Ea/k·(1/T − 1/T_rated))` (k = 8.617333262e-5
+  eV/K, temperatures in K) and steps combine by Miner's rule. Check
+  `lifetime.<ref>.life_h` passes when the life meets `required_life_h`; an
+  out-of-range factor is `unknown`. A failing check's detail carries the
+  margin, the life-doubling temperature step, the uniform profile cooling
+  and the rated life that would meet the requirement. No activation energy
+  or 10 °C rule is assumed.
 
 ## Sister imports
 

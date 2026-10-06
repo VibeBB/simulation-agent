@@ -35,7 +35,7 @@ hooks:
         - type: command
           name: record-vision-tool-event
           command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_vision_tool_event.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_vision_tool_event.py"'
-    - matcher: file_editor|sim_run|sim_gates|sim_respond|sim_plots|sim_spice|sim_pdn|sim_thermal|sim_wca|sim_emc|sim_dft|sim_fem|sim_rf|sim_ruggedness
+    - matcher: file_editor|sim_run|sim_gates|sim_respond|sim_plots|sim_spice|sim_pdn|sim_thermal|sim_wca|sim_emc|sim_dft|sim_fem|sim_rf|sim_ruggedness|sim_lifetime
       hooks:
         - type: command
           name: record-image-observation

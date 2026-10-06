@@ -17,7 +17,9 @@ class SimulationRequest(BaseModel):
         "circuit", "mech", "wire", "bard", "firmware", "fpga", "prodeng", "dashboard", "doc", "ux"
     ]
     request_id: str = Field(min_length=1)
-    kind: Literal["spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf", "ruggedness", "any"]
+    kind: Literal[
+        "spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf", "ruggedness", "lifetime", "any"
+    ]
     brief_path: str = Field(min_length=1)
     question: str = Field(min_length=1)
     requested_by: str | None = None

@@ -32,7 +32,8 @@ Every public function and class of `src/sim` (generated from the AST):
 ### `src/sim/analysis.py` — deterministic analysis bodies
 `branch_resistance`, `run_pdn_rail`, `run_thermal`, `run_wca`, `run_emc`,
 `run_dft`, `run_fem_analytic`, `run_ruggedness` (`plate_natural_frequency`,
-`drop_peak_g`), `run_bounds`, `microstrip_impedance`
+`drop_peak_g`), `run_lifetime` (`arrhenius_life_h`, `lifetime_guidance`),
+`run_bounds`, `microstrip_impedance`
 
 ### `src/sim/brief.py` — `*.sim.json` schema
 `Model`, `ImportRef`, `SpiceElement`, `Measure`, `SpiceDeck`, `SpiceSection`,

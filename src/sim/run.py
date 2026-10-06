@@ -21,6 +21,7 @@ from .analysis import (
     microstrip_impedance,
     run_dft,
     run_emc,
+    run_lifetime,
     run_pdn_rail,
     run_ruggedness,
     run_thermal,
@@ -226,7 +227,18 @@ def run_simulation(
     out_dir: Path,
     only: set[str] | None = None,
 ) -> SimulationReport:
-    known = {"spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf", "ruggedness"}
+    known = {
+        "spice",
+        "pdn",
+        "thermal",
+        "wca",
+        "emc",
+        "dft",
+        "fem",
+        "rf",
+        "ruggedness",
+        "lifetime",
+    }
     if only is not None and not only <= known:
         raise ValueError(f"unknown analysis in --only: {', '.join(sorted(only - known))}")
     selected = only or known
@@ -426,6 +438,8 @@ def run_simulation(
         adapter_files["fem"] = {"directory": str(out_dir / "fem"), **fem_files}
     if "ruggedness" in selected and brief.ruggedness is not None:
         checks.extend(run_ruggedness(brief.ruggedness))
+    if "lifetime" in selected and brief.lifetime is not None:
+        checks.extend(run_lifetime(brief.lifetime))
     if "rf" in selected and brief.rf is not None:
         rf = brief.rf
         data: TouchstoneData | None = None

@@ -19,6 +19,7 @@ in OpenHands; each shells out to `sim_launcher.py`, which runs the matching
 | `/sim:dft` | run only the DFT section |
 | `/sim:fem` | run only the FEM section |
 | `/sim:ruggedness` | run only the ruggedness section (vibration, drop, IP) |
+| `/sim:lifetime` | run only the Arrhenius lifetime section |
 | `/sim:rf` | run only the RF section |
 | `/sim:records` | append a decision/impression/vision-review record or show `record status` |
 | `/sim:ux-inbox` | list SLP v2 liaison requests and malformed files |

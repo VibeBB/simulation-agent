@@ -14,6 +14,8 @@ from .brief import (
     EmcProtection,
     EmcSection,
     FemSection,
+    LifetimePart,
+    LifetimeSection,
     PdnBranch,
     PdnRail,
     RuggedDrop,
@@ -827,3 +829,76 @@ def microstrip_impedance(
             )
         )
     return impedance
+
+
+BOLTZMANN_EV_PER_K = 8.617333262e-5
+KELVIN = 273.15
+
+
+def arrhenius_life_h(part: LifetimePart, shift_c: float = 0.0) -> float:
+    """Miner-summed Arrhenius life over the mission profile, hours."""
+    t_ref = part.rated_temp_c + KELVIN
+    damage = 0.0
+    for stress in part.profile:
+        t_use = stress.temperature_c + shift_c + KELVIN
+        exponent = part.activation_energy_ev / BOLTZMANN_EV_PER_K * (1 / t_use - 1 / t_ref)
+        damage += stress.fraction / (part.rated_life_h * math.exp(exponent))
+    return 1 / damage
+
+
+def lifetime_guidance(part: LifetimePart, life_h: float) -> list[str]:
+    """Temperature drop and rated-life changes that reach ``required_life_h``."""
+    hottest = max(stress.temperature_c for stress in part.profile) + KELVIN
+    doubling_k = math.log(2) * BOLTZMANN_EV_PER_K * hottest**2 / part.activation_energy_ev
+    lines = [
+        f"sensitivity: life doubles per {doubling_k:.3g} K cooler near "
+        f"{hottest - KELVIN:.6g} °C (Ea {part.activation_energy_ev:.6g} eV)",
+        f"rated_life_h ≥ {part.rated_life_h * part.required_life_h / life_h:.6g} "
+        f"at {part.rated_temp_c:.6g} °C (life ∝ rated life)",
+    ]
+    low, high = 0.0, 1.0
+    floor = -(min(stress.temperature_c for stress in part.profile) + KELVIN) + 1e-6
+    while arrhenius_life_h(part, -high) < part.required_life_h:
+        high *= 2
+        if -high <= floor:
+            return lines
+    for _ in range(80):
+        mid = (low + high) / 2
+        if arrhenius_life_h(part, -mid) >= part.required_life_h:
+            high = mid
+        else:
+            low = mid
+    lines.insert(1, f"lower every profile temperature by ≥ {high:.6g} °C")
+    return lines
+
+
+def run_lifetime(section: LifetimeSection) -> list[GateCheck]:
+    checks: list[GateCheck] = []
+    for part in section.parts:
+        check_id = f"lifetime.{part.ref}.life_h"
+        try:
+            life = arrhenius_life_h(part)
+        except (OverflowError, ZeroDivisionError):
+            checks.append(check(check_id, "lifetime", "unknown", "Arrhenius factor out of range"))
+            continue
+        ok = life >= part.required_life_h
+        detail = (
+            f"Arrhenius life {life:.6g} h (rated {part.rated_life_h:.6g} h at "
+            f"{part.rated_temp_c:.6g} °C, Ea {part.activation_energy_ev:.6g} eV, "
+            f"{len(part.profile)} profile step(s); source: {part.source}); "
+            f"margin {life - part.required_life_h:.6g} h"
+        )
+        if not ok:
+            detail = f"{detail}; fix: {' | '.join(lifetime_guidance(part, life))}"
+        checks.append(
+            check(
+                check_id,
+                "lifetime",
+                "pass" if ok else "fail",
+                detail,
+                measured=life,
+                limit=f"≥ {part.required_life_h:.6g} h",
+                evidence=[part.source],
+            )
+        )
+    return checks
