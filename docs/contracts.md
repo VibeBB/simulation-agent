@@ -52,6 +52,9 @@ one analysis section:
 (`WireContract`, `ConnectivitySource`, `EnvelopeSource`, `ContractElementSource`,
 `ContractImportedSource`, …). Each import is bound to the source file's
 sha256 in `imports.json` written by `write_import_record`.
+`WireContract` accepts wire's `drawing` (title block) and `simulation` (PDN
+handoff) sections as opaque objects so current harness contracts import; sim
+reads neither — the PDN loops arrive as a separate `*.sim.json` brief.
 
 ## `*.sim-request.json` — v1 sister request (schema_version 1)
 

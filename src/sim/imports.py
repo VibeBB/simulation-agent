@@ -248,9 +248,11 @@ class WireContract(StrictModel):
         default_factory=lambda: list[ContractSegregation]()
     )
     service: ContractService | None = None
+    simulation: dict[str, object] | None = None
     imported_sources: list[ContractImportedSource] = Field(
         default_factory=lambda: list[ContractImportedSource]()
     )
+    drawing: dict[str, object] | None = None
 
     @model_validator(mode="after")
     def validate_contract(self) -> WireContract:
