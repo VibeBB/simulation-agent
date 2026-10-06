@@ -55,7 +55,7 @@ def verify() -> list[str]:
         "commands": len(list((plugin / "commands").glob("*.md"))),
         "skills": len(list((plugin / "skills").glob("*/SKILL.md"))),
     }
-    expected = {"agents": 3, "commands": 16, "skills": 11}
+    expected = {"agents": 3, "commands": 17, "skills": 11}
     if counts != expected:
         failures.append(f"plugin inventory {counts!r} != {expected!r}")
     for path in sorted((plugin / "skills").glob("*/SKILL.md")):

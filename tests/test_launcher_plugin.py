@@ -100,7 +100,7 @@ def test_plugin_assets_match_v01_inventory() -> None:
         "sim-review",
         "sim-liaison",
     }
-    assert len(list((plugin / "commands").glob("*.md"))) == 16
+    assert len(list((plugin / "commands").glob("*.md"))) == 17
     assert len(list((plugin / "skills").glob("*/SKILL.md"))) == 11
     for agent in (plugin / "agents").glob("*.md"):
         header = agent.read_text(encoding="utf-8").split("---", 2)[1]
@@ -120,6 +120,7 @@ def test_plugin_assets_match_v01_inventory() -> None:
             "dft": "run",
             "fem": "run",
             "rf": "run",
+            "ruggedness": "run",
             "gates": "gates",
             "import": "import",
             "respond": "respond",
@@ -128,7 +129,17 @@ def test_plugin_assets_match_v01_inventory() -> None:
             "plots": "plots",
         }[command_name]
         assert f"sim_launcher.py {cli_command}" in text
-        if command_name in {"spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf"}:
+        if command_name in {
+            "spice",
+            "pdn",
+            "thermal",
+            "wca",
+            "emc",
+            "dft",
+            "fem",
+            "rf",
+            "ruggedness",
+        }:
             assert f"--only {command_name}" in text
     assert {tool.name for tool in tool_specs()} >= {
         "sim_doctor",

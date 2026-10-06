@@ -22,6 +22,7 @@ from .analysis import (
     run_dft,
     run_emc,
     run_pdn_rail,
+    run_ruggedness,
     run_thermal,
     run_wca,
 )
@@ -225,7 +226,7 @@ def run_simulation(
     out_dir: Path,
     only: set[str] | None = None,
 ) -> SimulationReport:
-    known = {"spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf"}
+    known = {"spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf", "ruggedness"}
     if only is not None and not only <= known:
         raise ValueError(f"unknown analysis in --only: {', '.join(sorted(only - known))}")
     selected = only or known
@@ -423,6 +424,8 @@ def run_simulation(
         fem_result, fem_files = run_calculix(brief.fem, out_dir / "fem")
         checks.extend(fem_result)
         adapter_files["fem"] = {"directory": str(out_dir / "fem"), **fem_files}
+    if "ruggedness" in selected and brief.ruggedness is not None:
+        checks.extend(run_ruggedness(brief.ruggedness))
     if "rf" in selected and brief.rf is not None:
         rf = brief.rf
         data: TouchstoneData | None = None

@@ -30,6 +30,21 @@ one analysis section:
   `limits` (`FemLimits`).
 - `rf`: `RfSection` — `bands` (`RfBand` frequency span + S-parameter
   limits), optional `rfsim` (`RfSim`) and `microstrip` (`Microstrip`).
+- `ruggedness`: `RuggednessSection` — at least one of `vibration`, `drop`,
+  `ingress`. `vibration` (`psd_g2_hz`, optional `q` (default √fn) and
+  `min_fn_hz`, `parts[]` of `RuggedPart` ref/x_mm/y_mm (board-centred)/
+  length_mm/parallel_to/steinberg_c) needs `plate` (`RuggedPlate`
+  width/depth/thickness, `youngs_mpa`, `poisson`, `density_kg_m3`,
+  `component_mass_g`). Checks: simply supported plate first mode
+  (`ruggedness.vibration.fn` when `min_fn_hz` is set) and, per part, Miles'
+  3σ displacement against Steinberg's allowable
+  `0.00022·B/(c·h·r·√L)` (r = |cos(πx/a)·cos(πy/b)|). `drop`
+  (`height_mm`, `pulse_ms`, `restitution` 0–1, `max_shock_g`): half-sine
+  peak `π(1+e)√(2gh)/(2τ)`. `ingress` (`code` `IP[0-6X][0-9X]`,
+  `openings_min_mm[]`, `sealed`): first digits 1–4 need every opening below
+  the 50/12.5/2.5/1.0 mm probe; dust digits 5/6 and any water digit are
+  `unknown` (IEC 60529 test required), and a water digit with unsealed
+  openings is `fail`.
 
 ## Sister imports
 
