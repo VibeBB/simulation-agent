@@ -175,6 +175,37 @@ def run_pdn_rail(rail: PdnRail) -> list[GateCheck]:
         ]
 
 
+def thermal_guidance(
+    ref: str,
+    *,
+    ambient_c: float,
+    limit_c: float,
+    power_w: float,
+    self_c_per_w: float,
+    other_rise_c: float,
+) -> list[str]:
+    """Inverse solutions of Tj = Ta + P·Z_self + other rise for a failing junction."""
+    headroom = limit_c - ambient_c - other_rise_c
+    lines = [
+        f"sensitivity: dTj/dP({ref}) = {self_c_per_w:.6g} °C/W, "
+        f"dTj/dθ = {power_w:.6g} W, dTj/dTa = 1",
+        f"ambient_c ≤ {limit_c - (power_w * self_c_per_w + other_rise_c):.6g} °C "
+        "at the current power and thermal path",
+    ]
+    if headroom <= 0:
+        lines.append(
+            f"{ref} exceeds {limit_c:.6g} °C even at zero own power "
+            f"(ambient plus other sources give {ambient_c + other_rise_c:.6g} °C); "
+            "lower ambient or the other sources, or raise tj_max_c/derating basis"
+        )
+        return lines
+    if self_c_per_w > 0:
+        lines.append(f"power_w({ref}) ≤ {headroom / self_c_per_w:.6g} W at the current θ")
+    if power_w > 0:
+        lines.append(f"θ({ref}) ≤ {headroom / power_w:.6g} °C/W at the current power")
+    return lines
+
+
 def run_thermal(section: ThermalSection) -> list[GateCheck]:
     results: list[GateCheck] = []
     if section.network is None:
@@ -216,6 +247,17 @@ def run_thermal(section: ThermalSection) -> list[GateCheck]:
                     f"junction temperature {temp:.9g} °C",
                     measured=temp,
                     limit=f"≤ {limit:.9g} °C",
+                    margin=limit - temp,
+                    guidance=[]
+                    if temp <= limit
+                    else thermal_guidance(
+                        component.ref,
+                        ambient_c=section.ambient_c,
+                        limit_c=limit,
+                        power_w=component.power_w,
+                        self_c_per_w=theta,
+                        other_rise_c=0.0,
+                    ),
                 )
             )
     else:
@@ -280,6 +322,20 @@ def run_thermal(section: ThermalSection) -> list[GateCheck]:
                     continue
                 temp = temps[component.ref]
                 limit = component.tj_max_c - component.derating_margin_c
+                guidance: list[str] = []
+                if temp > limit:
+                    unit = [0.0 for _ in unknown]
+                    unit[indexes[component.ref]] = 1.0
+                    self_c_per_w = linalg.solve(matrix, unit)[indexes[component.ref]]
+                    power = network.power_nodes[component.ref]
+                    guidance = thermal_guidance(
+                        component.ref,
+                        ambient_c=section.ambient_c,
+                        limit_c=limit,
+                        power_w=power,
+                        self_c_per_w=self_c_per_w,
+                        other_rise_c=temp - section.ambient_c - power * self_c_per_w,
+                    )
                 results.append(
                     check(
                         f"thermal.{component.ref}.tj",
@@ -288,6 +344,8 @@ def run_thermal(section: ThermalSection) -> list[GateCheck]:
                         f"network junction temperature {temp:.9g} °C",
                         measured=temp,
                         limit=f"≤ {limit:.9g} °C",
+                        margin=limit - temp,
+                        guidance=guidance,
                     )
                 )
             for ref, _node in network.power_nodes.items():
@@ -649,6 +707,36 @@ def plate_natural_frequency(plate: RuggedPlate) -> float:
     return math.pi / 2 * math.sqrt(rigidity / areal_mass) * (1 / a**2 + 1 / b**2)
 
 
+def plate_fn_guidance(plate: RuggedPlate, fn: float, target_hz: float) -> list[str]:
+    """Single-parameter changes that lift the plate first mode to ``target_hz``."""
+    lines = [f"youngs_mpa ≥ {plate.youngs_mpa * (target_hz / fn) ** 2:.6g} (fn ∝ √E)"]
+    a = plate.width_mm / 1000
+    b = plate.depth_mm / 1000
+    h = plate.thickness_mm / 1000
+    rigidity = plate.youngs_mpa * 1e6 * h**3 / (12 * (1 - plate.poisson**2))
+    areal_max = rigidity / (target_hz / (math.pi / 2 * (1 / a**2 + 1 / b**2))) ** 2
+    mass_max_g = (areal_max - plate.density_kg_m3 * h) * a * b * 1000
+    if mass_max_g >= 0:
+        lines.append(f"component_mass_g ≤ {mass_max_g:.6g}")
+    else:
+        lines.append("bare plate is below target even without components")
+    low, high = plate.thickness_mm, plate.thickness_mm
+    for _ in range(60):
+        high *= 2
+        if plate_natural_frequency(plate.model_copy(update={"thickness_mm": high})) >= target_hz:
+            break
+    else:
+        return lines
+    for _ in range(80):
+        mid = (low + high) / 2
+        if plate_natural_frequency(plate.model_copy(update={"thickness_mm": mid})) >= target_hz:
+            high = mid
+        else:
+            low = mid
+    lines.append(f"thickness_mm ≥ {high:.6g}")
+    return lines
+
+
 def _run_vibration(plate: RuggedPlate, vibration: RuggedVibration) -> list[GateCheck]:
     fn = plate_natural_frequency(plate)
     checks: list[GateCheck] = []
@@ -661,6 +749,10 @@ def _run_vibration(plate: RuggedPlate, vibration: RuggedVibration) -> list[GateC
                 f"plate first mode {fn:.6g} Hz",
                 measured=fn,
                 limit=f"≥ {vibration.min_fn_hz:.6g} Hz",
+                margin=fn - vibration.min_fn_hz,
+                guidance=[]
+                if fn >= vibration.min_fn_hz
+                else plate_fn_guidance(plate, fn, vibration.min_fn_hz),
             )
         )
     q = vibration.q if vibration.q is not None else math.sqrt(fn)
@@ -710,6 +802,16 @@ def _run_vibration(plate: RuggedPlate, vibration: RuggedVibration) -> list[GateC
                 f"Q {q:.6g}, {g_rms:.6g} Grms; Steinberg allowable {allowable_mm:.6g} mm",
                 measured=z3_mm,
                 limit=f"≤ {allowable_mm:.6g} mm",
+                margin=allowable_mm - z3_mm,
+                guidance=[]
+                if z3_mm <= allowable_mm
+                else [
+                    f"psd_g2_hz ≤ {vibration.psd_g2_hz * (allowable_mm / z3_mm) ** 2:.6g} "
+                    "(displacement ∝ √PSD at fixed fn and Q)",
+                    f"move {part.ref} toward a supported edge: mode-shape factor "
+                    f"{r:.6g} → ≤ {r * allowable_mm / z3_mm:.6g} (allowable ∝ 1/r)",
+                    "raise the plate first mode (displacement ∝ fn^-2 at fixed Grms)",
+                ],
             )
         )
     return checks
@@ -720,6 +822,20 @@ def drop_peak_g(drop: RuggedDrop) -> float:
     velocity = math.sqrt(2 * STANDARD_GRAVITY * drop.height_mm / 1000)
     delta_v = (1 + drop.restitution) * velocity
     return math.pi * delta_v / (2 * drop.pulse_ms / 1000) / STANDARD_GRAVITY
+
+
+def drop_guidance(drop: RuggedDrop, peak: float) -> list[str]:
+    """Single-parameter changes that bring the half-sine peak to ``max_shock_g``."""
+    ratio = drop.max_shock_g / peak
+    lines = [
+        f"pulse_ms ≥ {drop.pulse_ms / ratio:.6g} (cushioning; peak ∝ 1/pulse)",
+        f"height_mm ≤ {drop.height_mm * ratio**2:.6g} (peak ∝ √height)",
+    ]
+    restitution = (1 + drop.restitution) * ratio - 1
+    if restitution >= 0:
+        lines.append(f"restitution ≤ {restitution:.6g} (peak ∝ 1 + e)")
+    lines.append(f"or qualify parts to max_shock_g ≥ {peak:.6g}")
+    return lines
 
 
 def _run_drop(drop: RuggedDrop) -> list[GateCheck]:
@@ -733,6 +849,8 @@ def _run_drop(drop: RuggedDrop) -> list[GateCheck]:
             f"over {drop.pulse_ms:.6g} ms",
             measured=peak,
             limit=f"≤ {drop.max_shock_g:.6g} g",
+            margin=drop.max_shock_g - peak,
+            guidance=[] if peak <= drop.max_shock_g else drop_guidance(drop, peak),
         )
     ]
 
@@ -751,6 +869,13 @@ def _run_ingress(ingress: RuggedIngress) -> list[GateCheck]:
                 f"largest opening {worst:.6g} mm against the IP{solids}X {probe:.6g} mm probe",
                 measured=worst,
                 limit=f"< {probe:.6g} mm",
+                margin=probe - worst,
+                guidance=[]
+                if worst < probe
+                else [
+                    f"narrow every opening of {probe:.6g} mm or more below the probe "
+                    f"(largest {worst:.6g} mm), or add a guard"
+                ],
             )
         )
     elif solids in ("5", "6"):

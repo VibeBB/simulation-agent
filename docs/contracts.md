@@ -70,10 +70,18 @@ against `valid_event_ids`), `reasons[]`. Written atomically by
 ## `sim-report.json` — analysis report (schema_version 2)
 
 `SimulationReport`: `schema_version` 2, `name`, `verdict`, `checks[]`
-(id, verdict, detail), `measures[]`, `files[]`, `plots[]` (`PlotInfo`:
+(id, analysis, verdict, detail, measured, limit, evidence, margin,
+guidance), `measures[]`, `files[]`, `plots[]` (`PlotInfo`:
 path + sha256 + kind), `plot_errors[]`. `sim-report.md` is the human
 projection with a Plots section; `manifest.json`/`provenance.json` bind
 inputs to outputs.
+
+`margin` is the headroom to the limit in measured units (negative when
+violated); `guidance` lists, for a failing thermal or ruggedness check,
+the sensitivity and the single-parameter value that would reach the limit
+(for example `power_w(U1) ≤ 1.25 W at the current θ`), solved from the
+same closed-form model that produced the verdict. Requesting sisters copy
+both into their own gate detail; neither changes a verdict.
 
 ## `liaison/*.ux-request.json` / `*.ux-response.json` — SLP v2
 
