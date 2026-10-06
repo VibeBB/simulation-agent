@@ -316,3 +316,157 @@ def test_run_rejects_symlinked_generated_output(tmp_path: Path) -> None:
         run_simulation(load_brief(brief_path), brief_path, tmp_path, out_dir, {"dft"})
 
     assert protected.read_text(encoding="utf-8") == "leave intact\n"
+
+
+def _fw_power(tmp_path: Path, **overrides: object) -> Path:
+    payload: dict[str, object] = {
+        "schema_version": 1,
+        "system": "firmware",
+        "artifact_kind": "firmware_power",
+        "design": "kettle",
+        "contract_sha256": "a" * 64,
+        "mcu_ref": "U1",
+        "supply_net": "+3V3",
+        "peak_current_a": 0.025,
+        "average_current_a": 0.025 * 0.1 + 0.0002 * 0.9,
+        "modes": [
+            {"id": "run", "kind": "run", "current_a": 0.025, "duty": 0.1},
+            {"id": "sleep", "kind": "deep_sleep", "current_a": 0.0002, "duty": 0.9},
+        ],
+    }
+    payload.update(overrides)
+    path = tmp_path / "kettle.fw-power.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_firmware_power_import_extracts_peak_supply_current(tmp_path: Path) -> None:
+    path = _fw_power(tmp_path)
+    source = import_source(path.name, tmp_path)
+    assert source["system"] == "firmware"
+    assert source["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+    extracted = cast(dict[str, object], source["extracted"])
+    assert extracted["nets"] == [
+        {
+            "ref": "+3V3",
+            "current_a": 0.025,
+            "average_current_a": pytest.approx(0.00268),
+            "mcu_ref": "U1",
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"peak_current_a": 0.02},
+        {"average_current_a": 0.01},
+        {"artifact_kind": "firmware_pinmap"},
+        {"modes": []},
+        {"extra": True},
+    ],
+)
+def test_firmware_power_import_rejects_inconsistent_exports(
+    tmp_path: Path, overrides: dict[str, object]
+) -> None:
+    with pytest.raises(ValueError):
+        import_source(_fw_power(tmp_path, **overrides).name, tmp_path)
+
+
+def _fw_pdn_brief(tmp_path: Path, current: str, imports: list[dict[str, str]]) -> Path:
+    brief = tmp_path / "kettle.sim.json"
+    brief.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "name": "kettle",
+                "imports": imports,
+                "pdn": {
+                    "rails": [
+                        {
+                            "name": "v3v3",
+                            "source_v": 3.3,
+                            "max_drop_v": 0.1,
+                            "source_node": "VIN",
+                            "nodes": ["VIN", "U1"],
+                            "branches": [
+                                {
+                                    "ref": "R1",
+                                    "from_node": "VIN",
+                                    "to_node": "U1",
+                                    "kind": "resistor",
+                                    "resistance_ohm": 0.5,
+                                }
+                            ],
+                            "loads": [{"node": "U1", "current_a": current}],
+                        }
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return brief
+
+
+def _drop(tmp_path: Path, brief: Path) -> dict[str, object]:
+    out_dir = tmp_path / "out" / "kettle"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report = run_simulation(load_brief(brief), brief, tmp_path, out_dir, {"pdn"})
+    by_id = {item["id"]: item for item in report["checks"]}
+    return cast(dict[str, object], by_id["pdn.v3v3.drop.U1"])
+
+
+def test_pdn_load_draws_the_imported_firmware_peak_current(tmp_path: Path) -> None:
+    path = _fw_power(tmp_path)
+    brief = _fw_pdn_brief(
+        tmp_path, "import:firmware:+3V3", [{"path": path.name, "system": "firmware"}]
+    )
+    drop = _drop(tmp_path, brief)
+    assert drop["verdict"] == "pass"
+    assert drop["measured"] == pytest.approx(0.0125)
+
+
+def test_pdn_firmware_current_needs_the_firmware_import(tmp_path: Path) -> None:
+    path = _fw_power(tmp_path)
+    connectivity = tmp_path / "board.connectivity.json"
+    connectivity.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "system": "circuit",
+                "connectors": [],
+                "nets": [
+                    {"ref": "+3V3", "signal_class": "power", "voltage_v": 3.3, "current_a": 1.0}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    brief = _fw_pdn_brief(
+        tmp_path,
+        "import:firmware:+3V3",
+        [{"path": connectivity.name, "system": "circuit"}],
+    )
+    out_dir = tmp_path / "out" / "kettle"
+    out_dir.mkdir(parents=True)
+    report = run_simulation(load_brief(brief), brief, tmp_path, out_dir, {"pdn"})
+    unknown = [item for item in report["checks"] if item["verdict"] == "unknown"]
+    assert any("+3V3" in item["detail"] for item in unknown)
+    assert report["verdict"] != "pass"
+    assert path.exists()
+
+
+def test_pdn_firmware_import_must_be_declared_as_firmware(tmp_path: Path) -> None:
+    path = _fw_power(tmp_path)
+    brief = _fw_pdn_brief(
+        tmp_path, "import:firmware:+3V3", [{"path": path.name, "system": "circuit"}]
+    )
+    out_dir = tmp_path / "out" / "kettle"
+    out_dir.mkdir(parents=True)
+    report = run_simulation(load_brief(brief), brief, tmp_path, out_dir, {"pdn"})
+    assert any(
+        item["id"].startswith("imports.circuit") and item["verdict"] == "unknown"
+        for item in report["checks"]
+    )
+    assert report["verdict"] != "pass"
