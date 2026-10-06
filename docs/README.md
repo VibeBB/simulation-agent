@@ -23,6 +23,7 @@ or file an issue.
   sampling limits, and known boundaries
 - [operations.md](operations.md) — runtime environment, images, CI boundary
 - [development.md](development.md) — dev setup, verification, release
+- [test-coverage.md](test-coverage.md) — C0/C1/C2/MCC/MC/DC and boundary coverage, floors, test-design techniques
 - [improvement-notes.md](improvement-notes.md) — running improvement list
 - [adr/](adr/) — design decisions
 - [research/](research/) — solver selection research (historical, unchanged)

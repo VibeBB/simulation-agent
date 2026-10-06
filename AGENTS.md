@@ -66,9 +66,9 @@ uv run python scripts/check_plugin_load.py
 actionlint
 ```
 
-Fast verification runs pytest with
-`--cov --cov-report=term-missing:skip-covered`; coverage measures `src/sim`
-without branch coverage and enforces a 77% minimum. `verify_all.py` also
+Fast verification runs pytest through `scripts/structural_coverage.py run`;
+coverage measures `src/sim` with branches and gates the C0, C1, decision,
+C2, MC/DC and boundary floors in `pyproject.toml` (`docs/test-coverage.md`). `verify_all.py` also
 accepts `--group` (lint/unit/docker), `--match`, and `--shard K/N` to run a
 subset of a stage's commands so CI can spread one stage across jobs;
 `--list` dumps the tagged command table.
