@@ -15,7 +15,7 @@
 | `sim_import` | `file`, `brief` | `imports[]`, `imports.json` | mirrors a sister contract |
 | `sim_respond` | `request`, `decision_refs?` | `*.sim-response.json` | v1 flow; reruns the requested analysis |
 | `sim_schema` | none | nothing | brief JSON schema |
-| `sim_spice` … `sim_rf` | `brief` (path) | `out/<name>/` | one analysis each (8 tools); inline plots |
+| `sim_spice` … `sim_ruggedness` | `brief` (path) | `out/<name>/` | one analysis each (9 tools); inline plots |
 | `sim_plots` | `out_dir` | nothing | returns the report's plot list + inline PNGs |
 | `sim_record_decision` | `DecisionInput` | `observations/sim/decisions.jsonl` | appends a validated VRP record |
 | `sim_record_impression` | `StageImpressionInput` | `observations/sim/impressions.jsonl` | long-form stage impression |

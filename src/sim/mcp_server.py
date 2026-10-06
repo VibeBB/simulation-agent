@@ -34,7 +34,7 @@ from .run import run_simulation
 from .workspace import workspace_path, workspace_root
 
 server = Server(f"sim-mcp/{__version__}")
-ANALYSES = ("spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf")
+ANALYSES = ("spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf", "ruggedness")
 WRITING_TOOLS = {
     "sim_run",
     "sim_gates",

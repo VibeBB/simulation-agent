@@ -543,6 +543,70 @@ class RfSection(Model):
         return self
 
 
+class RuggedPlate(Model):
+    width_mm: float = Field(gt=0)
+    depth_mm: float = Field(gt=0)
+    thickness_mm: float = Field(gt=0)
+    youngs_mpa: float = Field(gt=0)
+    poisson: float = Field(gt=-1, lt=0.5)
+    density_kg_m3: float = Field(gt=0)
+    component_mass_g: float = Field(ge=0)
+
+
+class RuggedPart(Model):
+    ref: str = Field(min_length=1)
+    x_mm: float
+    y_mm: float
+    length_mm: float = Field(gt=0)
+    parallel_to: Literal["width", "depth"]
+    steinberg_c: float = Field(gt=0)
+
+
+class RuggedVibration(Model):
+    psd_g2_hz: float = Field(gt=0)
+    q: float | None = Field(default=None, gt=0)
+    min_fn_hz: float | None = Field(default=None, gt=0)
+    parts: list[RuggedPart] = Field(min_length=1)
+
+
+class RuggedDrop(Model):
+    height_mm: float = Field(gt=0)
+    pulse_ms: float = Field(gt=0)
+    restitution: float = Field(ge=0, le=1)
+    max_shock_g: float = Field(gt=0)
+
+
+class RuggedIngress(Model):
+    code: str = Field(pattern=r"^IP[0-6X][0-9X]$")
+    openings_min_mm: list[float] = Field(default_factory=lambda: list[float]())
+    sealed: bool
+
+    @model_validator(mode="after")
+    def validate_openings(self) -> RuggedIngress:
+        if any(not value > 0 for value in self.openings_min_mm):
+            raise ValueError("opening dimensions must be positive")
+        return self
+
+
+class RuggednessSection(Model):
+    plate: RuggedPlate | None = None
+    vibration: RuggedVibration | None = None
+    drop: RuggedDrop | None = None
+    ingress: RuggedIngress | None = None
+
+    @model_validator(mode="after")
+    def validate_inputs(self) -> RuggednessSection:
+        if self.vibration is None and self.drop is None and self.ingress is None:
+            raise ValueError("ruggedness needs vibration, drop, or ingress")
+        if self.vibration is not None and self.plate is None:
+            raise ValueError("ruggedness vibration needs plate")
+        if self.vibration is not None:
+            refs = [part.ref for part in self.vibration.parts]
+            if len(set(refs)) != len(refs):
+                raise ValueError("ruggedness part refs must be unique")
+        return self
+
+
 class SimulationBrief(Model):
     schema_version: Literal[1]
     name: str = Field(pattern=r"^[A-Za-z0-9_-]+$")
@@ -556,12 +620,23 @@ class SimulationBrief(Model):
     dft: DftSection | None = None
     fem: FemSection | None = None
     rf: RfSection | None = None
+    ruggedness: RuggednessSection | None = None
 
     @model_validator(mode="after")
     def require_section(self) -> SimulationBrief:
         if not any(
             getattr(self, key) is not None
-            for key in ("spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf")
+            for key in (
+                "spice",
+                "pdn",
+                "thermal",
+                "wca",
+                "emc",
+                "dft",
+                "fem",
+                "rf",
+                "ruggedness",
+            )
         ):
             raise ValueError("at least one analysis section is required")
         return self

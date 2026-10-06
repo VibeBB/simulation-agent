@@ -16,6 +16,11 @@ from .brief import (
     FemSection,
     PdnBranch,
     PdnRail,
+    RuggedDrop,
+    RuggedIngress,
+    RuggednessSection,
+    RuggedPlate,
+    RuggedVibration,
     TestPoint,
     ThermalSection,
     WcaSection,
@@ -627,6 +632,167 @@ def run_fem_analytic(section: FemSection) -> list[GateCheck]:
             limit=f"≥ {section.limits.min_safety_factor:.9g}",
         ),
     ]
+
+
+STANDARD_GRAVITY = 9.80665
+MM_PER_INCH = 25.4
+IP_FIRST_DIGIT_PROBE_MM = {"1": 50.0, "2": 12.5, "3": 2.5, "4": 1.0}
+
+
+def plate_natural_frequency(plate: RuggedPlate) -> float:
+    """First mode of a simply supported rectangular plate (Steinberg), Hz."""
+    a = plate.width_mm / 1000
+    b = plate.depth_mm / 1000
+    h = plate.thickness_mm / 1000
+    rigidity = plate.youngs_mpa * 1e6 * h**3 / (12 * (1 - plate.poisson**2))
+    areal_mass = plate.density_kg_m3 * h + plate.component_mass_g / 1000 / (a * b)
+    return math.pi / 2 * math.sqrt(rigidity / areal_mass) * (1 / a**2 + 1 / b**2)
+
+
+def _run_vibration(plate: RuggedPlate, vibration: RuggedVibration) -> list[GateCheck]:
+    fn = plate_natural_frequency(plate)
+    checks: list[GateCheck] = []
+    if vibration.min_fn_hz is not None:
+        checks.append(
+            check(
+                "ruggedness.vibration.fn",
+                "ruggedness",
+                "pass" if fn >= vibration.min_fn_hz else "fail",
+                f"plate first mode {fn:.6g} Hz",
+                measured=fn,
+                limit=f"≥ {vibration.min_fn_hz:.6g} Hz",
+            )
+        )
+    q = vibration.q if vibration.q is not None else math.sqrt(fn)
+    g_rms = math.sqrt(math.pi / 2 * fn * q * vibration.psd_g2_hz)
+    z3_mm = 3 * g_rms * STANDARD_GRAVITY / (2 * math.pi * fn) ** 2 * 1000
+    h_in = plate.thickness_mm / MM_PER_INCH
+    for part in vibration.parts:
+        edge_mm = plate.width_mm if part.parallel_to == "width" else plate.depth_mm
+        r = abs(
+            math.cos(math.pi * part.x_mm / plate.width_mm)
+            * math.cos(math.pi * part.y_mm / plate.depth_mm)
+        )
+        inside = abs(part.x_mm) <= plate.width_mm / 2 and abs(part.y_mm) <= plate.depth_mm / 2
+        if not inside:
+            checks.append(
+                check(
+                    f"ruggedness.vibration.{part.ref}",
+                    "ruggedness",
+                    "unknown",
+                    "part position lies outside the plate",
+                )
+            )
+            continue
+        if r < 1e-9:
+            checks.append(
+                check(
+                    f"ruggedness.vibration.{part.ref}",
+                    "ruggedness",
+                    "pass",
+                    "part sits on a supported edge (no relative displacement)",
+                    measured=z3_mm,
+                )
+            )
+            continue
+        allowable_mm = (
+            0.00022
+            * (edge_mm / MM_PER_INCH)
+            / (part.steinberg_c * h_in * r * math.sqrt(part.length_mm / MM_PER_INCH))
+            * MM_PER_INCH
+        )
+        checks.append(
+            check(
+                f"ruggedness.vibration.{part.ref}",
+                "ruggedness",
+                "pass" if z3_mm <= allowable_mm else "fail",
+                f"3-sigma board displacement {z3_mm:.6g} mm at fn {fn:.6g} Hz, "
+                f"Q {q:.6g}, {g_rms:.6g} Grms; Steinberg allowable {allowable_mm:.6g} mm",
+                measured=z3_mm,
+                limit=f"≤ {allowable_mm:.6g} mm",
+            )
+        )
+    return checks
+
+
+def drop_peak_g(drop: RuggedDrop) -> float:
+    """Peak acceleration of a half-sine pulse absorbing the drop velocity change, g."""
+    velocity = math.sqrt(2 * STANDARD_GRAVITY * drop.height_mm / 1000)
+    delta_v = (1 + drop.restitution) * velocity
+    return math.pi * delta_v / (2 * drop.pulse_ms / 1000) / STANDARD_GRAVITY
+
+
+def _run_drop(drop: RuggedDrop) -> list[GateCheck]:
+    peak = drop_peak_g(drop)
+    return [
+        check(
+            "ruggedness.drop.peak_g",
+            "ruggedness",
+            "pass" if peak <= drop.max_shock_g else "fail",
+            f"half-sine peak {peak:.6g} g for a {drop.height_mm:.6g} mm drop "
+            f"over {drop.pulse_ms:.6g} ms",
+            measured=peak,
+            limit=f"≤ {drop.max_shock_g:.6g} g",
+        )
+    ]
+
+
+def _run_ingress(ingress: RuggedIngress) -> list[GateCheck]:
+    solids, water = ingress.code[2], ingress.code[3]
+    checks: list[GateCheck] = []
+    if solids in IP_FIRST_DIGIT_PROBE_MM:
+        probe = IP_FIRST_DIGIT_PROBE_MM[solids]
+        worst = max(ingress.openings_min_mm, default=0.0)
+        checks.append(
+            check(
+                "ruggedness.ingress.solids",
+                "ruggedness",
+                "pass" if worst < probe else "fail",
+                f"largest opening {worst:.6g} mm against the IP{solids}X {probe:.6g} mm probe",
+                measured=worst,
+                limit=f"< {probe:.6g} mm",
+            )
+        )
+    elif solids in ("5", "6"):
+        checks.append(
+            check(
+                "ruggedness.ingress.solids",
+                "ruggedness",
+                "unknown",
+                f"IP{solids}X dust protection needs an IEC 60529 dust-chamber test",
+            )
+        )
+    if water not in ("X", "0"):
+        if ingress.openings_min_mm and not ingress.sealed:
+            checks.append(
+                check(
+                    "ruggedness.ingress.water",
+                    "ruggedness",
+                    "fail",
+                    f"IPX{water} with unsealed openings",
+                )
+            )
+        else:
+            checks.append(
+                check(
+                    "ruggedness.ingress.water",
+                    "ruggedness",
+                    "unknown",
+                    f"IPX{water} water protection needs an IEC 60529 water test",
+                )
+            )
+    return checks
+
+
+def run_ruggedness(section: RuggednessSection) -> list[GateCheck]:
+    checks: list[GateCheck] = []
+    if section.vibration is not None and section.plate is not None:
+        checks += _run_vibration(section.plate, section.vibration)
+    if section.drop is not None:
+        checks += _run_drop(section.drop)
+    if section.ingress is not None:
+        checks += _run_ingress(section.ingress)
+    return checks
 
 
 def run_bounds(
