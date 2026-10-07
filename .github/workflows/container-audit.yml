@@ -78,9 +78,10 @@ jobs:
               text=True,
           ).stdout.strip()
           print("PRIMARY_IMAGE=" + ref)
-          # Shared by all Trivy invocations in this job; the actions/cache
-          # step below persists the ~120MB vulnerability DB across the
-          # weekly runs instead of re-downloading it every time.
+          # The CIS scan leg's cache dir; the actions/cache step below
+          # persists the ~120MB vulnerability DB across the weekly runs
+          # instead of re-downloading it every time. The per-image scan
+          # leg runs concurrently on a private copy.
           print("TRIVY_CACHE_DIR=" + os.path.join(os.environ["HOME"], ".cache", "trivy"))
           PY
       - name: Pull pinned images
@@ -116,18 +117,26 @@ jobs:
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.75.0
-      # Populate the shared cache dir serially so the scan legs below only
-      # ever read the DB (concurrent DB downloads in one cache dir are not
-      # safe).
-      - name: Warm the Trivy DB before the parallel scans
+      # Populate the CIS leg's cache dir serially so it only ever reads the
+      # DB; the per-image scan leg copies this DB into a private dir because
+      # concurrent trivy processes in one cache dir race on db/metadata.json
+      # and corrupt it.
+      - name: Warm the Trivy DB for the CIS scan leg
         run: trivy image --download-db-only
-      # The scans read the same pinned images and the now-warm shared
-      # vulnerability DB, and each writes a disjoint report path, so they
+      # The scans read the same pinned images, each writes a disjoint report
+      # path, and each trivy process writes to its own cache dir, so they
       # run as one parallel group (implicit wait at the end).
       - parallel:
           - name: Scan pinned images (Trivy JSON, SARIF via convert)
+            env:
+              # Private dir: this leg runs concurrently with the CIS scan.
+              TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache-scan
             run: |
               set -euo pipefail
+              # Seed the private dir with the just-warmed DB so no download
+              # or metadata update is needed inside this leg.
+              mkdir -p "$TRIVY_CACHE_DIR"
+              cp -a "$HOME/.cache/trivy/." "$TRIVY_CACHE_DIR/"
               mkdir -p sarif reports
               for pair in $PINNED_IMAGES; do
                 name="${pair%%=*}"
