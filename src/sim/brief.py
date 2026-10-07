@@ -16,7 +16,7 @@ class Model(BaseModel):
 
 class ImportRef(Model):
     path: str = Field(min_length=1)
-    system: Literal["circuit", "mech", "wire", "bard"]
+    system: Literal["circuit", "mech", "wire", "bard", "firmware"]
 
 
 class SpiceElement(Model):
@@ -101,7 +101,7 @@ class PdnLoad(Model):
         if isinstance(self.current_a, float) and self.current_a < 0:
             raise ValueError("current_a must be non-negative")
         if isinstance(self.current_a, str) and not self.current_a.startswith("import:"):
-            raise ValueError("string current_a must use import:<net>")
+            raise ValueError("string current_a must use import:<net> or import:firmware:<net>")
         return self
 
 

@@ -63,6 +63,18 @@ one analysis section:
 (`WireContract`, `ConnectivitySource`, `EnvelopeSource`, `ContractElementSource`,
 `ContractImportedSource`, …). Each import is bound to the source file's
 sha256 in `imports.json` written by `write_import_record`.
+`WireContract` accepts wire's `drawing` (title block) and `simulation` (PDN
+handoff) sections as opaque objects so current harness contracts import; sim
+reads neither — the PDN loops arrive as a separate `*.sim.json` brief.
+
+`*.fw-power.json` (`FirmwarePowerSource`, firmware-agent `firmware power`)
+carries the MCU draw on its supply net: `supply_net`, `peak_current_a` (the
+largest mode current) and `average_current_a` (duty-weighted), both
+re-checked against `modes[]`. A PDN load with
+`current_a: "import:firmware:<net>"` draws the imported peak current; the
+import must be declared with `system: "firmware"`, and a net the import does
+not carry is `unknown`. `import:<net>` keeps reading circuit
+`*.connectivity.json` nets.
 
 ## `*.sim-request.json` — v1 sister request (schema_version 1)
 
@@ -81,10 +93,18 @@ against `valid_event_ids`), `reasons[]`. Written atomically by
 ## `sim-report.json` — analysis report (schema_version 2)
 
 `SimulationReport`: `schema_version` 2, `name`, `verdict`, `checks[]`
-(id, verdict, detail), `measures[]`, `files[]`, `plots[]` (`PlotInfo`:
+(id, analysis, verdict, detail, measured, limit, evidence, margin,
+guidance), `measures[]`, `files[]`, `plots[]` (`PlotInfo`:
 path + sha256 + kind), `plot_errors[]`. `sim-report.md` is the human
 projection with a Plots section; `manifest.json`/`provenance.json` bind
 inputs to outputs.
+
+`margin` is the headroom to the limit in measured units (negative when
+violated); `guidance` lists, for a failing thermal or ruggedness check,
+the sensitivity and the single-parameter value that would reach the limit
+(for example `power_w(U1) ≤ 1.25 W at the current θ`), solved from the
+same closed-form model that produced the verdict. Requesting sisters copy
+both into their own gate detail; neither changes a verdict.
 
 ## `liaison/*.ux-request.json` / `*.ux-response.json` — SLP v2
 

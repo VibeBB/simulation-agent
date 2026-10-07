@@ -17,6 +17,8 @@ class GateCheckData(TypedDict):
     measured: float | None
     limit: str | None
     evidence: list[str]
+    margin: float | None
+    guidance: list[str]
 
 
 @dataclass(frozen=True)
@@ -28,6 +30,8 @@ class GateCheck:
     measured: float | None = None
     limit: str | None = None
     evidence: list[str] | None = None
+    margin: float | None = None
+    guidance: list[str] | None = None
 
     def to_dict(self) -> GateCheckData:
         return {
@@ -38,6 +42,8 @@ class GateCheck:
             "measured": self.measured,
             "limit": self.limit,
             "evidence": self.evidence or [],
+            "margin": self.margin,
+            "guidance": self.guidance or [],
         }
 
 
@@ -70,12 +76,20 @@ def check(
     measured: float | None = None,
     limit: str | None = None,
     evidence: list[str] | None = None,
+    *,
+    margin: float | None = None,
+    guidance: list[str] | None = None,
 ) -> GateCheck:
+    """``margin`` is headroom to the limit in measured units (negative = violated)."""
     if measured is not None and not math.isfinite(measured):
         return GateCheck(
             check_id, analysis, "unknown", "measurement is non-finite", evidence=evidence
         )
-    return GateCheck(check_id, analysis, verdict, detail, measured, limit, evidence)
+    if margin is not None and not math.isfinite(margin):
+        margin, guidance = None, None
+    return GateCheck(
+        check_id, analysis, verdict, detail, measured, limit, evidence, margin, guidance
+    )
 
 
 def aggregate(checks: list[GateCheck]) -> Verdict:

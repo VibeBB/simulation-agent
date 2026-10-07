@@ -142,35 +142,40 @@ jobs:
         with:
           python-version: "3.14"
           cache-suffix: locked-image-check
-      - name: Warn that tools image has no attestation metadata
-        if: needs.check-lock.outputs.attestation == ''
-        run: echo "::warning::sim_tools image lock has no attestation metadata; skipping provenance verification."
-      - name: Verify tools image provenance
-        if: needs.check-lock.outputs.attestation != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          IMAGE: ${{ needs.check-lock.outputs.image }}
-          DIGEST: ${{ needs.check-lock.outputs.digest }}
-        run: |
-          gh attestation verify "oci://${IMAGE}@${DIGEST}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-sim-images.yml"
-      - name: Warn when tools image has no SBOM attestation
-        if: needs.check-lock.outputs.sbom_attestation == ''
-        run: echo "::warning::sim_tools image lock has no SBOM attestation; continuing"
-      - name: Verify tools image SBOM attestation
-        if: needs.check-lock.outputs.sbom_attestation != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          IMAGE: ${{ needs.check-lock.outputs.image }}
-          DIGEST: ${{ needs.check-lock.outputs.digest }}
-        run: |
-          gh attestation verify "oci://${IMAGE}@${DIGEST}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-sim-images.yml" \
-            --predicate-type https://spdx.dev/Document/v2.3
       - run: uv sync --locked
-      - run: uv run python scripts/pull_locked_image.py --entry sim_tools
+      # The attestation verifications and the image pull only need the lock
+      # contents — not each other — so they run as one parallel group and
+      # the pulled image is guaranteed present by the implicit wait.
+      - parallel:
+          - name: Warn that tools image has no attestation metadata
+            if: needs.check-lock.outputs.attestation == ''
+            run: echo "::warning::sim_tools image lock has no attestation metadata; skipping provenance verification."
+          - name: Verify tools image provenance
+            if: needs.check-lock.outputs.attestation != ''
+            env:
+              GH_TOKEN: ${{ github.token }}
+              IMAGE: ${{ needs.check-lock.outputs.image }}
+              DIGEST: ${{ needs.check-lock.outputs.digest }}
+            run: |
+              gh attestation verify "oci://${IMAGE}@${DIGEST}" \
+                --repo "$GITHUB_REPOSITORY" \
+                --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-sim-images.yml"
+          - name: Warn when tools image has no SBOM attestation
+            if: needs.check-lock.outputs.sbom_attestation == ''
+            run: echo "::warning::sim_tools image lock has no SBOM attestation; continuing"
+          - name: Verify tools image SBOM attestation
+            if: needs.check-lock.outputs.sbom_attestation != ''
+            env:
+              GH_TOKEN: ${{ github.token }}
+              IMAGE: ${{ needs.check-lock.outputs.image }}
+              DIGEST: ${{ needs.check-lock.outputs.digest }}
+            run: |
+              gh attestation verify "oci://${IMAGE}@${DIGEST}" \
+                --repo "$GITHUB_REPOSITORY" \
+                --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-sim-images.yml" \
+                --predicate-type https://spdx.dev/Document/v2.3
+          - name: Pull locked image
+            run: uv run python scripts/pull_locked_image.py --entry sim_tools
       - id: image
         run: echo "ref=$(uv run python scripts/print_locked_image.py --entry sim_tools)" >> "$GITHUB_OUTPUT"
       - name: Smoke locked image

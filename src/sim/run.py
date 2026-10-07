@@ -287,13 +287,18 @@ def run_simulation(
         adapter_files["spice"] = files
     if "pdn" in selected and brief.pdn is not None:
         imported_nets = _keyed_import_records(imports, "circuit", "nets", "ref")
+        imported_fw = _keyed_import_records(imports, "firmware", "nets", "ref")
         imported_wires = _keyed_import_records(imports, "wire", "wires", "id")
         for rail in brief.pdn.rails:
             updated_loads: list[PdnLoad] = []
             for load in rail.loads:
                 if isinstance(load.current_a, str):
                     net = load.current_a.removeprefix("import:")
-                    current = imported_nets.get(net, {}).get("current_a")
+                    if net.startswith("firmware:"):
+                        net = net.removeprefix("firmware:")
+                        current = imported_fw.get(net, {}).get("current_a")
+                    else:
+                        current = imported_nets.get(net, {}).get("current_a")
                     if not isinstance(current, (int, float)):
                         checks.append(
                             check(
