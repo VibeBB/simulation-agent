@@ -24,6 +24,15 @@ update candidates.
 
 ## Update history
 
+### 2026-10-07 — sdk 1.53.0
+
+Full changelog review: [SDK v1.53.0 feature evaluation](research/sdk-v1.53.0-feature-evaluation.md).
+
+| Component | From -> To | Decision |
+| --- | --- | --- |
+| `openhands-sdk` / `openhands-tools` (sdk-check group) | 1.52.0 -> 1.53.0 | Adopted. All 6 upstream PRs reviewed; skills-scan fix adopted implicitly, canvas-extension icon available but not adopted (no canvas extensions), release-CI/docs/test changes not applicable. |
+| mcp | deferred at <2 | openhands-sdk 1.53.0 still requires `fastmcp<4` -> `mcp<2`; deferral reason refreshed to cite 1.53.0. |
+
 ### 2026-10-05 — sdk 1.52.0
 
 Full changelog review: [SDK v1.52.0 feature evaluation](research/sdk-v1.52.0-feature-evaluation.md).

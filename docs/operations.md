@@ -227,9 +227,9 @@ they lapse.
 
 Every job in every workflow uses `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.
 
-## SDK 1.52.0 feature evaluation
+## SDK 1.53.0 feature evaluation
 
-See [simulation-agent SDK v1.52.0 feature evaluation](research/sdk-v1.52.0-feature-evaluation.md).
+See [simulation-agent SDK v1.53.0 feature evaluation](research/sdk-v1.53.0-feature-evaluation.md).
 
 ## Digest-lock PR verification
 
