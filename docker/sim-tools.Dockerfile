@@ -44,15 +44,12 @@ LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agen
       sim.calculix-ccx.version="${CALCULIX_CCX_VERSION}"
 
 COPY --from=uv /uv /uvx /usr/local/bin/
+COPY --chmod=0755 docker/apt-sources-fallback /usr/local/bin/
 
 # archive.ubuntu.com's port-80 front end has repeated outages (2026-08/09/10);
-# when it is unreachable swap the deb822 sources to Canonical's EC2 mirror —
-# the rewritten file then also serves later layers.
-RUN if ! timeout 8 bash -c '</dev/tcp/archive.ubuntu.com/80' 2>/dev/null; then \
-        sed -i 's|http://archive.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g' \
-            /etc/apt/sources.list.d/ubuntu.sources; \
-    fi \
-    && apt-get -o Acquire::Retries=5 update \
+# apt-sources-fallback swaps the deb822 sources to Canonical's EC2 mirror
+# whenever the resolute indexes fail to land.
+RUN apt-sources-fallback \
     && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
         ca-certificates \
         curl \
@@ -73,11 +70,7 @@ RUN curl --fail --location --silent --show-error \
         "${CALCULIX_CCX_DEB_URL}" \
     && echo "${NGSPICE_DEB_SHA256}  /tmp/ngspice.deb" | sha256sum --check \
     && echo "${CALCULIX_CCX_DEB_SHA256}  /tmp/calculix-ccx.deb" | sha256sum --check \
-    && if ! timeout 8 bash -c '</dev/tcp/archive.ubuntu.com/80' 2>/dev/null; then \
-        sed -i 's|http://archive.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g' \
-            /etc/apt/sources.list.d/ubuntu.sources; \
-    fi \
-    && apt-get -o Acquire::Retries=5 update \
+    && apt-sources-fallback \
     && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
         /tmp/ngspice.deb /tmp/calculix-ccx.deb \
     && rm -rf /var/lib/apt/lists/* /tmp/ngspice.deb /tmp/calculix-ccx.deb \
@@ -129,11 +122,9 @@ ARG OPENEMS_COMMIT=81f32e03d514f270e679b63e8861d24eaa03a7e2
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
 
-RUN if ! timeout 8 bash -c '</dev/tcp/archive.ubuntu.com/80' 2>/dev/null; then \
-        sed -i 's|http://archive.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g' \
-            /etc/apt/sources.list.d/ubuntu.sources; \
-    fi \
-    && apt-get -o Acquire::Retries=5 update \
+COPY --chmod=0755 docker/apt-sources-fallback /usr/local/bin/
+
+RUN apt-sources-fallback \
     && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
         build-essential \
         ca-certificates \
@@ -165,11 +156,7 @@ RUN git clone https://github.com/thliebig/openEMS-Project.git /tmp/openEMS-Proje
     && cmake --build /tmp/openEMS-Project/build --parallel 2 \
     && cmake --install /tmp/openEMS-Project/build
 
-RUN if ! timeout 8 bash -c '</dev/tcp/archive.ubuntu.com/80' 2>/dev/null; then \
-        sed -i 's|http://archive.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g' \
-            /etc/apt/sources.list.d/ubuntu.sources; \
-    fi \
-    && apt-get -o Acquire::Retries=5 update \
+RUN apt-sources-fallback \
     && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
         cython3 \
         python3-pip \
@@ -196,11 +183,7 @@ ARG KICAD_RFSIM_COMMIT=efa0ea9bd34b13f7819c6f2d4c02e78d34b116c3
 
 USER root
 
-RUN if ! timeout 8 bash -c '</dev/tcp/archive.ubuntu.com/80' 2>/dev/null; then \
-        sed -i 's|http://archive.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|http://us-west-2.ec2.archive.ubuntu.com/ubuntu|g' \
-            /etc/apt/sources.list.d/ubuntu.sources; \
-    fi \
-    && apt-get -o Acquire::Retries=5 update \
+RUN apt-sources-fallback \
     && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
         git \
         libboost-program-options1.90.0 \

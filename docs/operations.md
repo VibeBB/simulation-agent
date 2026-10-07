@@ -60,11 +60,12 @@ targets in `scripts/check_dependency_updates.py`. Debian Trixie has no
 is why the solver image uses Ubuntu. CI runners also use Ubuntu 26.04
 (their apt `ngspice`/`calculix-ccx` stay on resolute versions, which
 deliberately exercises the solver adapters against a different version
-than the image pins). Every `apt-get update` in the image build is
-preceded by a port-80 probe of `archive.ubuntu.com`; when it is
-unreachable the deb822 sources are rewritten to Canonical's EC2 mirror
-`us-west-2.ec2.archive.ubuntu.com` so a front-end outage cannot block the
-build.
+than the image pins). Every `apt-get update` in the image build runs
+through `docker/apt-sources-fallback`: when the resolute suite indexes do
+not land in `/var/lib/apt/lists` (archive.ubuntu.com's port-80 front end
+has repeated partial outages), the deb822 sources are rewritten to
+Canonical's EC2 mirror `us-west-2.ec2.archive.ubuntu.com` and the update
+retries once.
 
 The openEMS build dependencies include CMake `4.2.3`, Boost `1.90`, VTK
 `9.5.2`, HDF5 `1.14.6`, OpenMPI `5.0.10`, CGAL `6.1.1`, SWIG `4.4`,
