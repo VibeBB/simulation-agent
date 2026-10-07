@@ -17,6 +17,7 @@ from scripts.check_dependency_updates import (
     check_docker_args,
     check_docker_base_digest,
     check_docker_commits,
+    check_docker_debs,
     check_git_clones,
     check_github_actions,
     check_python_versions,
@@ -61,6 +62,46 @@ def test_docker_dependency_surfaces_match_simulation_image():
     assert digest_status.note.startswith("compare the immutable digest")
     statuses = check_docker_args(ROOT, list_remote_tags=lambda _url: ["0.12.23"])
     assert [(status.name, status.current) for status in statuses] == [("UV_VERSION", "0.12.23")]
+
+
+def test_docker_debs_track_debian_sid() -> None:
+    def fetch_json(url: str):
+        source = url.removeprefix("https://sources.debian.org/api/src/").rstrip("/")
+        return {
+            "versions": [
+                {
+                    "version": "2.21-1build1" if source == "calculix-ccx" else "45.2+ds-1",
+                    "suites": ["trixie"],
+                },
+                {"version": "2.23-1" if source == "calculix-ccx" else "47+ds-1", "suites": ["sid"]},
+            ]
+        }
+
+    statuses = check_docker_debs(ROOT, fetch_json=fetch_json)
+    rows = [(s.name, s.current, s.latest, s.outdated) for s in statuses]
+    assert rows == [
+        ("NGSPICE_VERSION", "47+ds-1", "47+ds-1", False),
+        ("CALCULIX_CCX_VERSION", "2.23-1", "2.23-1", False),
+    ]
+
+
+def test_docker_debs_flag_newer_sid_release() -> None:
+    def fetch_json(url: str):
+        return {"versions": [{"version": "9.99.0-1", "suites": ["sid"]}]}
+
+    statuses = check_docker_debs(ROOT, fetch_json=fetch_json)
+    assert all(status.outdated for status in statuses)
+    assert all(status.latest == "9.99.0-1" for status in statuses)
+
+
+def test_docker_debs_report_fetch_failed_on_error() -> None:
+    def fetch_json(url: str):
+        raise OSError("network down")
+
+    statuses = check_docker_debs(ROOT, fetch_json=fetch_json)
+    assert all(status.latest == "?" for status in statuses)
+    assert all(status.note == "fetch failed" for status in statuses)
+    assert all(status.fetch_failed for status in statuses)
 
 
 def test_lynis_clone_pin_parsed():
