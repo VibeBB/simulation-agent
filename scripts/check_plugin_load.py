@@ -10,11 +10,13 @@ PLUGIN_DIR = ROOT / "plugins" / "sim"
 EXPECTED_AGENTS = {"sim-analyst", "sim-liaison", "sim-review"}
 EXPECTED_SKILLS = {
     "sim-brief",
+    "sim-brief-rules",
     "sim-dft",
     "sim-emc-esd",
     "sim-fem-calculix",
     "sim-pdn-thermal",
     "sim-rf-openems",
+    "sim-out-rules",
     "sim-sibling-cooperation",
     "sim-spice",
     "sim-vision-review",
@@ -46,6 +48,7 @@ EXPECTED_HOOKS = {
         "sim-doctor",
         "intake-attachments",
         "ensure-llm-profiles",
+        "ensure-agent-profiles",
         "require-records",
         "ux-inbox-notice",
     },
@@ -122,7 +125,7 @@ def main() -> int:
         print("\n".join(failures), file=sys.stderr)
         return 1
     print(
-        "plugin-load OK: 3 agents, 16 commands, 11 skills, "
+        "plugin-load OK: 3 agents, 18 commands, 13 skills, "
         "session-start/user-prompt-submit/pre-tool-use/stop/post-tool-use hooks"
     )
     return 0

@@ -101,7 +101,7 @@ def test_plugin_assets_match_v01_inventory() -> None:
         "sim-liaison",
     }
     assert len(list((plugin / "commands").glob("*.md"))) == 18
-    assert len(list((plugin / "skills").glob("*/SKILL.md"))) == 11
+    assert len(list((plugin / "skills").glob("*/SKILL.md"))) == 13
     for agent in (plugin / "agents").glob("*.md"):
         header = agent.read_text(encoding="utf-8").split("---", 2)[1]
         assert "hooks:" in header
