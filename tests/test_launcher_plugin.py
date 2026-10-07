@@ -158,3 +158,41 @@ def test_plugin_assets_match_v01_inventory() -> None:
         "sim_fem",
         "sim_rf",
     }
+
+
+def _rootless_options(_docker: str) -> str:
+    return '["name=seccomp,profile=builtin","name=rootless","name=cgroupns"]'
+
+
+def _no_options(_docker: str) -> None:
+    return None
+
+
+def test_container_user_rootless(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rootless daemons get 0:0 — the host uid maps to an unusable subuid."""
+    import os
+
+    monkeypatch.setattr(launcher, "_docker_info_security_options", _rootless_options)
+    assert launcher._container_user("docker") == "0:0"
+    command = launcher._docker_argv("docker", "sim-tools:test", None, ["python", "-m", "sim"])
+    assert command[command.index("--user") + 1] == "0:0"
+    monkeypatch.setattr(launcher, "_docker_info_security_options", _no_options)
+    assert launcher._container_user("docker") == f"{os.getuid()}:{os.getgid()}"
+
+
+def test_smoke_image_container_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    """scripts/smoke_image.py shares the same rootless rule."""
+    import os
+    import sys
+
+    monkeypatch.setattr(sys, "path", [str(ROOT / "scripts"), *sys.path])
+    spec = importlib.util.spec_from_file_location(
+        "smoke_image_test", ROOT / "scripts" / "smoke_image.py"
+    )
+    assert spec is not None and spec.loader is not None
+    smoke = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(smoke)
+    monkeypatch.setattr(smoke, "_docker_info_security_options", _rootless_options)
+    assert smoke._container_user("docker") == "0:0"
+    monkeypatch.setattr(smoke, "_docker_info_security_options", _no_options)
+    assert smoke._container_user("docker") == f"{os.getuid()}:{os.getgid()}"
