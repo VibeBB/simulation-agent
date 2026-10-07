@@ -8,7 +8,14 @@ pins, and Python minor versions.
 `BASE_IMAGE` is compared with the latest supported Ubuntu LTS tag. Its sha256
 digest is also reported for manual review against the current Docker Hub tag.
 The `OPENEMS_COMMIT` and `KICAD_RFSIM_COMMIT` Docker ARGs are compared with
-their upstream default branch heads. Workflow `git clone --branch` pins
+their upstream default branch heads. The solver `NGSPICE_VERSION` and
+`CALCULIX_CCX_VERSION` Docker ARGs are `docker-deb` targets compared with
+the versions published in Debian unstable (sid) via `sources.debian.org` —
+the Dockerfile fetches the sid `.debs` from a permanent snapshot.debian.org
+archive URL and verifies them against the matching `*_DEB_SHA256` pins
+(sid is never added to `sources.list`; their `Depends` resolve from
+resolute). When the weekly report flags a newer sid upload, refresh the
+version, the snapshot URL, and the sha256 together. Workflow `git clone --branch` pins
 (currently the CISOfy/lynis checkout in `container-audit.yml`) are compared
 with the upstream repo's highest semver tag. The `sim-tools-em` source build
 is optional and remains separate from the published `sim-tools` image.
@@ -23,6 +30,15 @@ Remove or renew a deferral after review; expired deferrals do not suppress
 update candidates.
 
 ## Update history
+
+### 2026-10-07 — solver sid .deb pins (ngspice 47, CalculiX 2.23)
+
+Full changelog review: [Solver sid-.deb adoption (ngspice 47, CalculiX 2.23)](research/solver-sid-deb-adoption.md).
+
+| Component | From -> To | Decision |
+| --- | --- | --- |
+| ngspice | resolute apt `45.2+ds-1` -> sid `.deb` `47+ds-1` | Adopted. PSS update, small-signal noise for code models, `.sndprint`/`.sndparam`, VDMOS soft-recovery diode, adc/dac_bridge multi-bit, dc-sweep capacitance, `newcompat.ki`, TSTEP/TSTOP, `pyplot` reviewed; see research doc for adoption/non-adoption notes. |
+| calculix-ccx | resolute apt `2.21-1build1` -> sid `.deb` `2.23-1` | Adopted. `*DAMAGE INITIATION`, submodel heat transfer, C3D8I correction, `*REFINE MESH,SMOOTHING ONLY`, composite-shell `*HEAT TRANSFER`, contact in `*CYCLIC SYMMETRY MODEL`, `*EQUATION` node-set first term reviewed; see research doc. |
 
 ### 2026-10-07 — sdk 1.53.0
 

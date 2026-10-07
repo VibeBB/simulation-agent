@@ -1,6 +1,16 @@
 ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
 ARG UV_VERSION=0.12.23
 ARG UV_DIGEST=sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21
+# ngspice and calculix-ccx track Debian unstable (sid) instead of the
+# resolute apt pins so the image ships the newest solver releases; the
+# .debs are fetched from the permanent snapshot.debian.org archive and
+# verified before install. Their Depends resolve from resolute.
+ARG NGSPICE_VERSION=47+ds-1
+ARG NGSPICE_DEB_URL=https://snapshot.debian.org/archive/debian/20261007T000000Z/pool/main/n/ngspice/ngspice_47+ds-1_amd64.deb
+ARG NGSPICE_DEB_SHA256=fe4e9efa5990cb233addd67cea8f7c919791302bd499613c5ecdb08c67a94a32
+ARG CALCULIX_CCX_VERSION=2.23-1
+ARG CALCULIX_CCX_DEB_URL=https://snapshot.debian.org/archive/debian/20261007T000000Z/pool/main/c/calculix-ccx/calculix-ccx_2.23-1_amd64.deb
+ARG CALCULIX_CCX_DEB_SHA256=709b2d994699168f2754bd16117d51cef3241e268a7dfab185b8f78c98bd02aa
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION}@${UV_DIGEST} AS uv
 
@@ -8,6 +18,13 @@ FROM ${BASE_IMAGE} AS sim-tools
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG IMAGE_REVISION=unknown
+# Re-declare the global solver pins so the install layer can use them.
+ARG NGSPICE_VERSION
+ARG NGSPICE_DEB_URL
+ARG NGSPICE_DEB_SHA256
+ARG CALCULIX_CCX_VERSION
+ARG CALCULIX_CCX_DEB_URL
+ARG CALCULIX_CCX_DEB_SHA256
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
     UV_PYTHON_INSTALL_DIR=/opt/uv-python \
@@ -18,18 +35,45 @@ ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
 LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agent" \
       org.opencontainers.image.licenses="BSD-3-Clause" \
       org.opencontainers.image.revision="${IMAGE_REVISION}" \
-      sim.uv.version="0.12.23"
+      sim.uv.version="0.12.23" \
+      sim.ngspice.version="${NGSPICE_VERSION}" \
+      sim.calculix-ccx.version="${CALCULIX_CCX_VERSION}"
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 
 RUN apt-get -o Acquire::Retries=5 update \
     && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
         ca-certificates \
-        calculix-ccx \
-        ngspice \
+        curl \
         python3 \
         python3-venv \
     && rm -rf /var/lib/apt/lists/*
+
+# Solvers (GPL; run as unmodified subprocesses) from the checksum-pinned
+# Debian sid .debs: the sid pins reach ngspice 47 and CalculiX 2.23 while
+# the resolute apt channel is at ngspice 45.2 / calculix-ccx 2.21.
+RUN curl --fail --location --silent --show-error \
+        --retry 5 --retry-delay 10 --retry-all-errors \
+        --output /tmp/ngspice.deb \
+        "${NGSPICE_DEB_URL}" \
+    && curl --fail --location --silent --show-error \
+        --retry 5 --retry-delay 10 --retry-all-errors \
+        --output /tmp/calculix-ccx.deb \
+        "${CALCULIX_CCX_DEB_URL}" \
+    && echo "${NGSPICE_DEB_SHA256}  /tmp/ngspice.deb" | sha256sum --check \
+    && echo "${CALCULIX_CCX_DEB_SHA256}  /tmp/calculix-ccx.deb" | sha256sum --check \
+    && apt-get -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
+        /tmp/ngspice.deb /tmp/calculix-ccx.deb \
+    && rm -rf /var/lib/apt/lists/* /tmp/ngspice.deb /tmp/calculix-ccx.deb \
+    && mkdir -p /usr/share/doc/solvers \
+    && printf '%s\n' \
+        "source=Debian unstable pool via snapshot.debian.org" \
+        "ngspice=${NGSPICE_VERSION} sha256=${NGSPICE_DEB_SHA256}" \
+        "calculix-ccx=${CALCULIX_CCX_VERSION} sha256=${CALCULIX_CCX_DEB_SHA256}" \
+        > /usr/share/doc/solvers/SOURCE \
+    && ngspice --version | head -1 \
+    && (ccx -v || true) 2>&1 | head -2
 
 WORKDIR /opt/simulation-agent
 COPY pyproject.toml uv.lock README.md LICENSE /opt/simulation-agent/

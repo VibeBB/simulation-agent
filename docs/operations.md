@@ -44,13 +44,23 @@ and continue. A verification failure fails the check. See
 `sim-tools` is based on Ubuntu 26.04.1 LTS (Resolute), pinned by the
 `BASE_IMAGE` reference
 `docker.io/library/ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78`.
-Both Docker stages use this same base. Resolute provides `calculix-ccx`
-`2.21-1build1`, ngspice `45.2+ds-1`, and system Python
+Both Docker stages use this same base. Resolute provides system Python
 `3.14.3-0ubuntu2`; the simulation application itself remains in its
-uv-managed Python `3.14` environment. Debian Trixie has no
+uv-managed Python `3.14` environment. The solvers are not taken from
+resolute (`calculix-ccx` `2.21-1build1`, ngspice `45.2+ds-1`): the image
+installs the checksum-pinned Debian unstable `.debs`
+`ngspice_47+ds-1_amd64.deb` and `calculix-ccx_2.23-1_amd64.deb` from a
+permanent snapshot.debian.org archive URL so the image tracks upstream
+releases ahead of the Ubuntu cycle. Sid is never added to
+`sources.list` and the `.deb` `Depends` resolve from resolute
+packages; `NGSPICE_VERSION`/`CALCULIX_CCX_VERSION` are `docker-deb`
+targets in `scripts/check_dependency_updates.py`. Debian Trixie has no
 `calculix-ccx` installation candidate; it only publishes
 `calculix-ccx-test` `2.22-1`, which recommends the unavailable solver. This
-is why the solver image uses Ubuntu. CI runners also use Ubuntu 26.04.
+is why the solver image uses Ubuntu. CI runners also use Ubuntu 26.04
+(their apt `ngspice`/`calculix-ccx` stay on resolute versions, which
+deliberately exercises the solver adapters against a different version
+than the image pins).
 
 The openEMS build dependencies include CMake `4.2.3`, Boost `1.90`, VTK
 `9.5.2`, HDF5 `1.14.6`, OpenMPI `5.0.10`, CGAL `6.1.1`, SWIG `4.4`,
