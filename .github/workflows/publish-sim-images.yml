@@ -166,6 +166,11 @@ jobs:
               # dry_run. One scan feeds the gate, the SARIF render, and the
               # triage artifact below.
               scan-ref: ghcr.io/${{ env.IMAGE_OWNER }}/sim-tools:${{ github.sha }}-tools
+              # Private cache dir: this leg runs inside a parallel group,
+              # and trivy-action's default cache-dir (.cache/trivy) would
+              # share the DB with other legs and corrupt db/metadata.json
+              # on concurrent writes.
+              cache-dir: ${{ runner.temp }}/trivy-tools-json
               version: v0.75.0
               scanners: vuln,secret,misconfig,license
               exit-code: '0'
