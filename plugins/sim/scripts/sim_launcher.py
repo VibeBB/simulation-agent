@@ -23,6 +23,7 @@ _INSPECT_TIMEOUT_S = 30
 _PULL_TIMEOUT_S = 900
 _ATTEST_TIMEOUT_S = 120
 _GH_AUTH_TIMEOUT_S = 15
+_DOCKER_INFO_TIMEOUT_S = 10
 _VERIFY_ENV = "SIM_VERIFY_ATTESTATION"
 _REPOSITORY = "VibeBB/simulation-agent"
 _PUBLISH_FILE = ".github/workflows/publish-sim-images.yml"
@@ -248,6 +249,36 @@ def _ensure_image(
     return ref
 
 
+def _docker_info_security_options(docker: str) -> str | None:
+    """Return `docker info` security options, or None when unavailable."""
+    try:
+        result = subprocess.run(
+            [docker, "info", "-f", "{{json .SecurityOptions}}"],
+            capture_output=True,
+            text=True,
+            timeout=_DOCKER_INFO_TIMEOUT_S,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout if result.returncode == 0 else None
+
+
+def _container_user(docker: str) -> str:
+    """uid:gid to run the tools container as.
+
+    On rootless Docker the host uid maps to an unmapped subuid inside the
+    container user namespace, so bind-mounted workspace writes fail. There
+    container root (0:0) maps back to the daemon's owner — the invoking
+    user — so 0:0 keeps writes working without weakening isolation (the
+    container stays read-only/cap-dropped). On rootful Docker keep the host
+    uid so artifacts stay user-owned.
+    """
+    if "name=rootless" in (_docker_info_security_options(docker) or ""):
+        return "0:0"
+    return f"{os.getuid()}:{os.getgid()}"
+
+
 def _docker_argv(docker: str, image: str, source: Path | None, argv: list[str]) -> list[str]:
     workspace = Path(os.environ.get("OPENHANDS_PROJECT_DIR") or Path.cwd()).resolve()
     command = [
@@ -262,7 +293,7 @@ def _docker_argv(docker: str, image: str, source: Path | None, argv: list[str]) 
         "--security-opt",
         "no-new-privileges",
         "--user",
-        f"{os.getuid()}:{os.getgid()}",
+        _container_user(docker),
         "-v",
         f"{workspace}:{workspace}",
         "-w",
