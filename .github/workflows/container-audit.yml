@@ -117,11 +117,11 @@ jobs:
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.75.0
-      # Populate the CIS leg's cache dir serially so it only ever reads the
-      # DB; the per-image scan leg copies this DB into a private dir because
-      # concurrent trivy processes in one cache dir race on db/metadata.json
-      # and corrupt it.
-      - name: Warm the Trivy DB for the CIS scan leg
+      - name: Warm the Trivy DB for the raw-trivy scan legs
+        # Populate the shared seed dir serially; each leg copies it into a
+        # private cache dir first and only ever writes there. Concurrent
+        # trivy processes in one cache dir race on db/metadata.json and
+        # corrupt it.
         run: trivy image --download-db-only
       # The scans read the same pinned images, each writes a disjoint report
       # path, and each trivy process writes to its own cache dir, so they
@@ -157,8 +157,13 @@ jobs:
                   --output "sarif/trivy-${name}.sarif" "$RUNNER_TEMP/trivy-${name}-sarif.json"
               done
           - name: Run Docker CIS compliance report (primary image)
+            env:
+              # Private dir: this leg runs concurrently with the scan leg.
+              TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache-cis
             run: |
               set -euo pipefail
+              mkdir -p "$TRIVY_CACHE_DIR"
+              cp -a "$HOME/.cache/trivy/." "$TRIVY_CACHE_DIR/"
               # trivy exits 0 even when a mirror flake yields an empty Results
               # payload, so the retry keys on the MisconfSummary content, not
               # the exit code.
