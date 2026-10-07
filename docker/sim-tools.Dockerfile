@@ -26,6 +26,10 @@ ARG CALCULIX_CCX_VERSION
 ARG CALCULIX_CCX_DEB_URL
 ARG CALCULIX_CCX_DEB_SHA256
 
+# Fail the build when the left side of a verification pipe (curl|sha256sum)
+# breaks instead of silently passing the right side (hadolint DL4006).
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
     UV_PYTHON_INSTALL_DIR=/opt/uv-python \
     PATH=/opt/simulation-agent/.venv/bin:/opt/uv-python/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
@@ -72,7 +76,7 @@ RUN curl --fail --location --silent --show-error \
         "ngspice=${NGSPICE_VERSION} sha256=${NGSPICE_DEB_SHA256}" \
         "calculix-ccx=${CALCULIX_CCX_VERSION} sha256=${CALCULIX_CCX_DEB_SHA256}" \
         > /usr/share/doc/solvers/SOURCE \
-    && ngspice --version | head -1 \
+    && (ngspice --version || true) 2>&1 | head -1 \
     && (ccx -v || true) 2>&1 | head -2
 
 WORKDIR /opt/simulation-agent
