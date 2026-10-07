@@ -17,6 +17,8 @@ validates as a `SimulationBrief` (enforced by `tests/test_skill_docs.py`).
 | `sim-rf-openems` | Touchstone band checks, KiCad-rfsim/openEMS subprocess, microstrip estimate |
 | `sim-sibling-cooperation` | exchanging typed requests, imports, and responses with sister agents |
 | `sim-vision-review` | when to look at every image, the checklist slugs, the 400-char/3-sentence impression rule, advisory-only findings |
+| `sim-brief-rules` | path rule on `**/*.sim.json` / `**/*.sim-request.json` — schema, strict request validation, and provenance reminders injected when a brief or sister request is touched |
+| `sim-out-rules` | path rule on `**/out/**` — generated artifacts are read-only projections; change the brief and regenerate (the `protect-generated` hook enforces) |
 
 See [commands.md](commands.md) for the command surface and
 [records-and-vision.md](records-and-vision.md) for the record protocol the
