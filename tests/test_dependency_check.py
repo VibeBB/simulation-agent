@@ -15,12 +15,11 @@ from scripts.check_dependency_updates import (
     _action_repo,  # pyright: ignore[reportPrivateUsage]
     _github_latest_tag,  # pyright: ignore[reportPrivateUsage]
     check_docker_args,
-    check_python_versions,
     check_docker_base_digest,
     check_docker_commits,
     check_git_clones,
-    check_python_versions,
     check_github_actions,
+    check_python_versions,
     check_workflow_downloads,
     docker_base_image,
     main,
@@ -280,7 +279,8 @@ def test_python_versions_skip_older_legs_when_source_covers_latest(
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
     (workflows / "ci.yml").write_text(
-        "jobs:\n  verify:\n    strategy:\n      matrix:\n        python-version: [\"3.12\", \"3.13\", \"3.14\", \"3.15\"]\n",
+        "jobs:\n  verify:\n    strategy:\n      matrix:\n"
+        '        python-version: ["3.12", "3.13", "3.14", "3.15"]\n',
         encoding="utf-8",
     )
     statuses = check_python_versions(
