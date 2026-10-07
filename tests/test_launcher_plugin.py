@@ -100,7 +100,7 @@ def test_plugin_assets_match_v01_inventory() -> None:
         "sim-review",
         "sim-liaison",
     }
-    assert len(list((plugin / "commands").glob("*.md"))) == 17
+    assert len(list((plugin / "commands").glob("*.md"))) == 18
     assert len(list((plugin / "skills").glob("*/SKILL.md"))) == 11
     for agent in (plugin / "agents").glob("*.md"):
         header = agent.read_text(encoding="utf-8").split("---", 2)[1]
@@ -121,6 +121,7 @@ def test_plugin_assets_match_v01_inventory() -> None:
             "fem": "run",
             "rf": "run",
             "ruggedness": "run",
+            "lifetime": "run",
             "gates": "gates",
             "import": "import",
             "respond": "respond",
@@ -139,6 +140,7 @@ def test_plugin_assets_match_v01_inventory() -> None:
             "fem",
             "rf",
             "ruggedness",
+            "lifetime",
         }:
             assert f"--only {command_name}" in text
     assert {tool.name for tool in tool_specs()} >= {
