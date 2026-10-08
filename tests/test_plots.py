@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import math
 import struct
+import zlib
 from pathlib import Path
 
 import pytest
@@ -13,7 +15,12 @@ from sim.adapters.spice_raw import parse_raw, parse_raw_bytes
 from sim.brief import SimulationBrief
 from sim.gates import check
 from sim.plot import _decade_ticks  # pyright: ignore[reportPrivateUsage]
-from sim.run import _write_plots  # pyright: ignore[reportPrivateUsage]
+from sim.run import _fem_plot, _write_plots  # pyright: ignore[reportPrivateUsage]
+
+# line_chart layout constants (plot area between these pixel edges).
+_PLOT_TOP = 46
+_PLOT_BOTTOM = 540 - 60
+_TRACE_RIGHT = 800  # stay left of the legend swatch
 
 
 def _png_ok(blob: bytes, *, height: int | None = 540) -> None:
@@ -22,6 +29,41 @@ def _png_ok(blob: bytes, *, height: int | None = 540) -> None:
     assert width == 960
     if height is not None:
         assert actual_height == height
+
+
+def _png_rows(blob: bytes) -> list[bytes]:
+    """Decode the filter-0 RGB scanlines the plot canvas always emits."""
+    pos = 8
+    width = height = 0
+    idat = b""
+    while pos + 8 <= len(blob):
+        (length,) = struct.unpack(">I", blob[pos : pos + 4])
+        kind = blob[pos + 4 : pos + 8]
+        data = blob[pos + 8 : pos + 8 + length]
+        if kind == b"IHDR":
+            width, height = struct.unpack(">II", data[:8])
+        elif kind == b"IDAT":
+            idat += data
+        pos += 12 + length
+    raw = zlib.decompress(idat)
+    stride = width * 3
+    return [raw[y * (stride + 1) + 1 : (y + 1) * (stride + 1)] for y in range(height)]
+
+
+def _color_count(row: bytes, color: tuple[int, int, int], x_max: int = 960) -> int:
+    pixel = bytes(color)
+    return sum(1 for i in range(0, min(len(row), x_max * 3), 3) if row[i : i + 3] == pixel)
+
+
+def _curve_height(blob: bytes) -> int:
+    """Vertical pixel span of the first-series trace inside the plot area."""
+    rows = _png_rows(blob)
+    hits = [
+        y
+        for y in range(_PLOT_TOP, _PLOT_BOTTOM + 1)
+        if _color_count(rows[y], plot.PALETTE[0], x_max=_TRACE_RIGHT)
+    ]
+    return max(hits) - min(hits) if hits else 0
 
 
 def test_png_is_deterministic() -> None:
@@ -276,3 +318,84 @@ def test_scatter_equal_aspect() -> None:
     a = plot.scatter_board(points)
     b = plot.scatter_board(points)
     assert a == b
+
+
+def test_line_chart_y_focus_scales_to_data() -> None:
+    xs = list(range(200))
+    series = [("sig", xs, [x / 20000 for x in xs])]  # 0..0.01, far below the limit
+    focused = plot.line_chart(series, hlines=[(5.0, "limit")], y_focus=True)
+    plain = plot.line_chart(series, hlines=[(5.0, "limit")])
+    _png_ok(focused)
+    assert focused != plain
+    plot_height = _PLOT_BOTTOM - _PLOT_TOP
+    assert _curve_height(focused) > plot_height * 0.5
+    assert _curve_height(plain) < plot_height * 0.2
+    # Off-scale bound stays annotated: dashed line + label hug the top edge.
+    rows = _png_rows(focused)
+    edge_gray = sum(_color_count(row, plot.GRAY) for row in rows[_PLOT_TOP : _PLOT_TOP + 12])
+    assert edge_gray > 50
+
+
+def test_line_chart_y_focus_in_range_bound_unchanged() -> None:
+    xs = list(range(50))
+    series = [("sig", xs, [math.sin(x / 5) for x in xs])]
+    focused = plot.line_chart(series, hlines=[(0.5, "limit")], y_focus=True)
+    plain = plot.line_chart(series, hlines=[(0.5, "limit")])
+    # A bound inside the data span draws identically in both modes.
+    assert focused == plain
+    rows = _png_rows(focused)
+    assert any(_color_count(row, plot.GRAY) > 400 for row in rows)
+
+
+def test_line_chart_y_focus_below_bound() -> None:
+    xs = list(range(50))
+    series = [("sig", xs, [1.0 + math.sin(x / 5) for x in xs])]
+    focused = plot.line_chart(series, hlines=[(-3.0, "limit")], y_focus=True)
+    _png_ok(focused)
+    rows = _png_rows(focused)
+    edge_gray = sum(_color_count(row, plot.GRAY) for row in rows[_PLOT_BOTTOM - 14 : _PLOT_BOTTOM])
+    assert edge_gray > 50
+
+
+def test_line_chart_y_focus_no_data_fails_closed() -> None:
+    empty = plot.line_chart([], hlines=[(5.0, "lim")], y_focus=True)
+    _png_ok(empty)
+    assert empty == plot.line_chart([], hlines=[(5.0, "lim")])
+    corrupt = plot.line_chart([("bad", [1.0], [1.0, 2.0])], hlines=[(5.0, "lim")], y_focus=True)
+    assert corrupt == empty
+
+
+def test_fem_plot_zooms_when_limit_dwarfs_tip(tmp_path: Path) -> None:
+    out_dir = tmp_path / "out" / "demo"
+    out_dir.mkdir(parents=True)
+    brief = SimulationBrief.model_validate(
+        {
+            "schema_version": 1,
+            "name": "demo",
+            "fem": {
+                "geometry": {
+                    "kind": "cantilever_box",
+                    "length_mm": 100.0,
+                    "width_mm": 25.0,
+                    "height_mm": 10.0,
+                },
+                "material": {
+                    "name": "Al-6061-T6",
+                    "youngs_mpa": 69000.0,
+                    "poisson": 0.33,
+                    "yield_mpa": 276.0,
+                },
+                "load": {"kind": "tip_force", "force_n": 10.0, "direction": "-z"},
+                "mesh": {"nx": 2, "ny": 1, "nz": 1, "element": "C3D8I"},
+                "limits": {"max_deflection_mm": 1.0},
+            },
+        }
+    )
+    png = _fem_plot(brief, out_dir)
+    assert png is not None
+    _png_ok(png)
+    # tip ~0.02 mm vs limit 1 mm: the curve must fill the plot, not hug the axis.
+    assert _curve_height(png) > (_PLOT_BOTTOM - _PLOT_TOP) * 0.5
+    rows = _png_rows(png)
+    edge_gray = sum(_color_count(row, plot.GRAY) for row in rows[_PLOT_TOP : _PLOT_TOP + 12])
+    assert edge_gray > 50

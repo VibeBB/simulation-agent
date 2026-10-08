@@ -312,6 +312,7 @@ def line_chart(
     vspans: Sequence[tuple[float, float, str]] = (),
     markers: Sequence[tuple[float, float, str]] = (),
     note: str = "",
+    y_focus: bool = False,
     width: int = 960,
     height: int = 540,
 ) -> bytes:
@@ -319,6 +320,11 @@ def line_chart(
 
     ``markers`` are (raw x, y, label) points drawn as filled circles; the x
     value is in data units (log_x transforms it).
+
+    By default ``hlines`` values extend the y-range so every bound is drawn.
+    With ``y_focus=True`` the y-range comes from the data series alone and a
+    bound outside it renders as a dashed edge line labeled ``(above)`` or
+    ``(below)`` with its value, so a far-off limit cannot flatten the trace.
     """
     canvas = Canvas(width, height)
     left, right, top, bottom = 90, width - 20, 46, height - 60
@@ -333,8 +339,9 @@ def line_chart(
         drawn.append((label, txs, tys))
         xs_all.extend(txs)
         ys_all.extend(tys)
-    for value, _label in hlines:
-        ys_all.append(value)
+    if not y_focus:
+        for value, _label in hlines:
+            ys_all.append(value)
     for lo, hi, _label in vspans:
         xs_all.extend(
             [math.log10(max(lo, 1e-300)), math.log10(max(hi, 1e-300))] if log_x else [lo, hi]
@@ -386,9 +393,24 @@ def line_chart(
         legend_y = top + 8 + index * 12
         canvas.fill_rect(legend_x - 10, legend_y + 1, legend_x - 2, legend_y + 7, color)
         canvas.text(legend_x, legend_y, label, BLACK)
+    clipped_above = 0
+    clipped_below = 0
     for value, label in hlines:
-        canvas.line(left, py(value), right, py(value), GRAY, 2)
-        canvas.text(left + 4, py(value) - 10, label, GRAY)
+        if not y_focus or y_min <= value <= y_max:
+            canvas.line(left, py(value), right, py(value), GRAY, 2)
+            canvas.text(left + 4, py(value) - 10, label, GRAY)
+            continue
+        above = value > y_max
+        if above:
+            line_y = top + 1 + clipped_above * 12
+            clipped_above += 1
+        else:
+            line_y = bottom - 2 - clipped_below * 12
+            clipped_below += 1
+        for x in range(left, right, 10):
+            canvas.line(x, line_y, min(x + 6, right), line_y, GRAY)
+        tag = f"{label} {fmt(value)} ({'above' if above else 'below'})"
+        canvas.text(left + 4, line_y + 3 if above else line_y - 10, tag, GRAY)
     for x_value, y_value, label in markers:
         mx = px(math.log10(max(x_value, 1e-300)) if log_x else x_value)
         my = py(y_value)
