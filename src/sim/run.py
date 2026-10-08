@@ -896,6 +896,7 @@ def _fem_plot(brief: SimulationBrief, out_dir: Path) -> bytes | None:
         hlines=hlines,
         markers=[(length, tip, "tip")],
         note=f"tip = {tip:.3g} mm ({source}){limit}",
+        y_focus=True,
     )
 
 

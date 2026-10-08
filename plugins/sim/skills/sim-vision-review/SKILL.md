@@ -26,7 +26,7 @@ Each review names a checklist slug and records findings against it:
 | `spice-waveform` | waveform vs. .meas bound lines and `AT=` markers, decade labels, unit conversion (dB) |
 | `rf-sparams` | band windows vs. traces, dB scale, tick labels inside the canvas |
 | `dft-testpoints` | pad scale, top/bottom legend, pitch outline overlaps, failing-pair lines |
-| `fem-deflection` | deflection curve monotone toward the tip, sample density, tip annotation and limit |
+| `fem-deflection` | deflection curve monotone toward the tip, sample density, tip annotation and limit (an off-scale limit shows as a dashed edge line labeled `(above)`/`(below)`) |
 | `intake-image` | content readable, relevant to the request, no secrets in frame |
 | `sibling-render` | render matches the sister export it claims to show, labels legible |
 
