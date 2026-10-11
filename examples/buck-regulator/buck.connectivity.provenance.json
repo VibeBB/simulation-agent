@@ -1,0 +1,10 @@
+{
+  "artifact": {
+    "name": "buck.connectivity.json",
+    "sha256": "b096f8c5dda3e4d49322be9e0536fded71b26c5323e8f0dc50f3ff123ce009fb"
+  },
+  "decision_refs": [],
+  "envelope_version": 3,
+  "producer": "circuit",
+  "sources": []
+}
