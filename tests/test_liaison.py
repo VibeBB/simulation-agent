@@ -88,8 +88,37 @@ def _records(tmp_path: Path) -> tuple[str, str]:
                 "invalidate a finished answer without the responder noticing. "
                 "So the next step is to re-verify every declared input hash "
                 "before writing a ux-response, which is exactly what this run "
-                "did, leaving the trail auditable for the next session."
+                "did, leaving the trail auditable for the next session. The note "
+                "carries the evidence this answer cites."
             ),
+            "facets": {
+                "observed": ["the note records the evidence", "the inbox separates states"],
+                "works": ["declared input hashes are re-verified"],
+                "concerns": [
+                    {
+                        "id": "c1",
+                        "text": "a stale input can invalidate a finished answer",
+                        "severity": "info",
+                        "about": "self",
+                        "anchor": "stale",
+                    }
+                ],
+                "feelings": {
+                    "maker": "the trail is easy to audit",
+                    "user": "answers stay consistent with their inputs",
+                },
+                "next_actions": ["re-verify input hashes before every ux-response"],
+            },
+            "claims": [
+                {
+                    "text": "the note records the evidence",
+                    "anchor": "evidence",
+                    "artifact": "note.txt",
+                },
+                {"text": "the note names evidence", "anchor": "evidence", "artifact": "note.txt"},
+            ],
+            "confidence": "medium",
+            "unknowns": [],
         },
         tmp_path,
     )
@@ -446,18 +475,21 @@ def test_inbox_skips_invalid_other_target(tmp_path: Path) -> None:
 
 def test_forged_record_ref_is_refused(tmp_path: Path) -> None:
     _request(tmp_path, "ux-sim-001")
-    decision_ref, _ = _records(tmp_path)
+    payload = _done_payload(tmp_path, "ux-sim-001")
+    decision_ref = str(cast(list[str], payload["decision_refs"])[0])
     log = tmp_path / "observations" / "sim" / "decisions.jsonl"
-    forged = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
+    intact = log.read_text(encoding="utf-8")
+    forged = json.loads(intact.splitlines()[0])
     forged["rationale"] = "forged rationale keeps a forged event id"
     forged["event_id"] = hashlib.sha256(b"forged").hexdigest()
-    log.write_text(
-        log.read_text(encoding="utf-8") + json.dumps(forged) + "\n",
-        encoding="utf-8",
-    )
-    payload = _done_payload(tmp_path, "ux-sim-001")
-    with pytest.raises(ValueError, match=re.escape("is not a decisions.jsonl event_id")):
+    log.write_text(intact + json.dumps(forged) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="fails integrity"):
         ux_respond({**payload, "decision_refs": [str(forged["event_id"])]}, tmp_path)
+    with pytest.raises(ValueError, match="fails integrity"):
+        ux_respond({**payload, "decision_refs": [decision_ref]}, tmp_path)
+    log.write_text(intact, encoding="utf-8")
+    with pytest.raises(ValueError, match=re.escape("is not a decisions.jsonl event_id")):
+        ux_respond({**payload, "decision_refs": ["f" * 64]}, tmp_path)
     result = ux_respond({**payload, "decision_refs": [decision_ref]}, tmp_path)
     assert result["status"] == "done"
 

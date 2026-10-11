@@ -12,7 +12,7 @@ from .doctor import run_doctor
 from .imports import write_import_record
 from .liaison import inbox as liaison_inbox
 from .liaison import ux_respond
-from .records import RECORDERS, records_summary
+from .records import RECORDERS, records_digest, records_search, records_summary
 from .report import sha256_file
 from .requests import load_request
 from .responses import write_response
@@ -64,10 +64,12 @@ def _parser() -> argparse.ArgumentParser:
     ux_respond.add_argument("--json", required=True)
     record = subparsers.add_parser("record")
     record_sub = record.add_subparsers(dest="record_kind", required=True)
-    for kind in ("decision", "impression", "vision-review"):
+    for kind in RECORDERS:
         item = record_sub.add_parser(kind)
         item.add_argument("--json", required=True)
     record_sub.add_parser("status")
+    record_sub.add_parser("digest")
+    record_sub.add_parser("search").add_argument("--json", default=None)
     subparsers.add_parser("schema")
     return parser
 
@@ -236,11 +238,20 @@ def main(argv: list[str] | None = None) -> int:
             if args.record_kind == "status":
                 _print(records_summary(root))
                 return 0
+            if args.record_kind == "digest":
+                _print(records_digest(root))
+                return 0
+            if args.record_kind == "search" and args.json is None:
+                _print(records_search({}, root))
+                return 0
             payload_path = workspace_path(args.json, root)
             payload = json.loads(payload_path.read_text(encoding="utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("record payload must be a JSON object")
-            _print(RECORDERS[args.record_kind](cast(dict[str, object], payload), root))
+            if args.record_kind == "search":
+                _print(records_search(cast(dict[str, object], payload), root))
+            else:
+                _print(RECORDERS[args.record_kind](cast(dict[str, object], payload), root))
             return 0
     except (OSError, ValueError, KeyError, TypeError) as exc:
         _print({"verdict": "fail", "detail": str(exc)})

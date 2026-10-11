@@ -24,8 +24,14 @@ from .liaison import ux_respond
 from .records import (
     RECORDERS,
     DecisionInput,
+    InsightStatusInput,
+    ReadInput,
+    ReconcileInput,
+    SongReceiptInput,
     StageImpressionInput,
     VisionReviewInput,
+    records_digest,
+    records_search,
     records_summary,
 )
 from .requests import load_request
@@ -43,6 +49,10 @@ WRITING_TOOLS = {
     "sim_record_decision",
     "sim_record_impression",
     "sim_record_vision_review",
+    "sim_record_reconcile",
+    "sim_record_insight",
+    "sim_record_song_receipt",
+    "sim_record_read",
     "sim_ux_respond",
     *(f"sim_{analysis}" for analysis in ANALYSES),
 }
@@ -50,6 +60,10 @@ RECORDERS_MCP = {
     "sim_record_decision": RECORDERS["decision"],
     "sim_record_impression": RECORDERS["impression"],
     "sim_record_vision_review": RECORDERS["vision-review"],
+    "sim_record_reconcile": RECORDERS["reconcile"],
+    "sim_record_insight": RECORDERS["insight"],
+    "sim_record_song_receipt": RECORDERS["song-receipt"],
+    "sim_record_read": RECORDERS["read"],
 }
 DESCRIPTIONS = {
     "sim_doctor": (
@@ -91,6 +105,30 @@ DESCRIPTIONS = {
     ),
     "sim_records_status": (
         "Report record counts per log and the last Stop-hook verdict. Writes nothing."
+    ),
+    "sim_record_reconcile": (
+        "Reconcile the primary and blind (and round-2 tiebreak) vision reviews of one "
+        "dual-review plot in observations/sim/reconciles.jsonl. A split after the "
+        "tiebreak stays unknown. Advisory; never changes a verdict."
+    ),
+    "sim_record_insight": (
+        "Record the lifecycle (adopted, rejected, deferred, disputed, resolved) of an "
+        "idea or concern in observations/sim/insights.jsonl. Advisory."
+    ),
+    "sim_record_song_receipt": (
+        "Record the one-time, sha256-pinned receipt of a liaison/<id>.bard-song.json "
+        "addressed to sim. A receipt never requests another song. Advisory."
+    ),
+    "sim_record_read": (
+        "Record a read receipt for a sister impression found through "
+        "sim_records_search or sim_records_digest. Advisory."
+    ),
+    "sim_records_digest": (
+        "Summarise family records: recent impressions, open concerns and unread "
+        "sister impressions. Writes nothing."
+    ),
+    "sim_records_search": (
+        "Search family VRP records by text, plugin, kind or stage. Writes nothing."
     ),
     "sim_plots": (
         "Return inline PNG plots from an existing out/<name>/sim-report.json, "
@@ -204,9 +242,32 @@ def tool_specs() -> list[types.Tool]:
         "sim_record_decision": DecisionInput.model_json_schema(),
         "sim_record_impression": StageImpressionInput.model_json_schema(),
         "sim_record_vision_review": VisionReviewInput.model_json_schema(),
+        "sim_record_reconcile": ReconcileInput.model_json_schema(),
+        "sim_record_insight": InsightStatusInput.model_json_schema(),
+        "sim_record_song_receipt": SongReceiptInput.model_json_schema(),
+        "sim_record_read": ReadInput.model_json_schema(),
         "sim_records_status": {
             "type": "object",
             "properties": {},
+            "additionalProperties": False,
+        },
+        "sim_records_digest": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+        "sim_records_search": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "system": {"type": "string"},
+                "kind": {"type": "string", "enum": ["stage_impression", "vision_review"]},
+                "stage": {"type": "string"},
+                "artifact": {"type": "string"},
+                "severity": {"type": "string", "enum": ["info", "warning", "error"]},
+                "open_only": {"type": "boolean"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 200},
+            },
             "additionalProperties": False,
         },
     }
@@ -308,6 +369,10 @@ def dispatch_tool(name: str, arguments: dict[str, object]) -> dict[str, object]:
         return RECORDERS_MCP[name](arguments, root)
     if name == "sim_records_status":
         return records_summary(root)
+    if name == "sim_records_digest":
+        return records_digest(root)
+    if name == "sim_records_search":
+        return records_search(arguments, root)
     if name == "sim_ux_inbox":
         return liaison_inbox(root)
     if name == "sim_ux_respond":

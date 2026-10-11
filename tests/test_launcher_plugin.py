@@ -97,6 +97,7 @@ def test_plugin_assets_match_v01_inventory() -> None:
     assert manifest["name"] == "sim"
     assert {path.stem for path in (plugin / "agents").glob("*.md")} == {
         "sim-analyst",
+        "sim-blind-review",
         "sim-review",
         "sim-liaison",
     }

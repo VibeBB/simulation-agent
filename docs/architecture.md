@@ -7,7 +7,7 @@ organized in three layers:
   rejected) define every JSON that crosses a boundary: the `*.sim.json` brief,
   sister-contract imports, `*.sim-request.json` / `*.sim-response.json`,
   SLP v2 `*.ux-request.json` / `*.ux-response.json`, `sim-report.json`, and the
-  VRP v1 record lines. `workspace.py` confines every path to the workspace.
+  VRP v2 record lines. `workspace.py` confines every path to the workspace.
 - **L2 — deterministic analysis and rendering.** `analysis.py` computes
   first-order checks; `adapters/` run unmodified copyleft solvers as
   subprocesses and parse their output; `gates.py` turns check data into
@@ -82,13 +82,13 @@ Every public function and class of `src/sim` (generated from the AST):
 `fmt`, `Canvas`, `line_chart`, `parse_limit`, `margin_chart`,
 `stacked_bar_chart`, `scatter_board`
 
-### `src/sim/records.py` — VRP v1 record protocol
-`sentence_count`, `impression_is_prose`, `sha256_file`, `tree_sha256`,
-`ArtifactRef`, `EvidenceRef`, `DecisionOption`, `EvidenceInput`,
+### `src/sim/records.py` — VRP v2 record writers
 `DecisionInput`, `StageImpressionInput`, `VisionReviewInput`,
-`DecisionRecord`, `StageImpression`, `VisionReview`, `records_dir`,
-`record_decision`, `record_impression`, `record_vision_review`,
-`valid_event_ids`, `records_summary`
+`ReconcileInput`, `InsightStatusInput`, `SongReceiptInput`, `ReadInput`,
+`RECORDERS`, `records_dir`, `records_summary`, `records_digest`,
+`records_search`, `decision_event_ids`, `impression_event_ids`,
+`valid_event_ids`. Validation, chaining and grounding live in the vendored
+canonical core `src/sim/_vrp.py` (byte-identical to the hook `_records.py`).
 
 ### `src/sim/report.py` — `sim-report` projection
 `PlotInfo`, `SimulationReport`, `sha256_file`, `render_markdown`,
