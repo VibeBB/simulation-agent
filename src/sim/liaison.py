@@ -16,6 +16,8 @@ from typing import Literal, cast
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from . import _vrp
+from .records import records_dir as _heads_records_dir
 from .records import sha256_file, tree_sha256, valid_event_ids
 from .workspace import reject_symlinks, workspace_path, workspace_root
 
@@ -111,6 +113,7 @@ class UXResponse(_Strict):
     decision_refs: list[str] = Field(default_factory=list)
     impression_refs: list[str] = Field(default_factory=list)
     questions_for_user: list[str] = Field(default_factory=list)
+    records_heads: dict[str, str] = Field(default_factory=dict[str, str])
     responded_at: AwareDatetime
 
 
@@ -233,6 +236,19 @@ def _report_verdicts(value: str, root: Path) -> tuple[list[GateVerdict], Artifac
     return verdicts, ArtifactRef(path=relative, sha256=sha256_file(path))
 
 
+def _records_heads(root: Path) -> tuple[dict[str, str], list[str]]:
+    """Chain head per intact VRP log, plus the kinds whose chain is broken."""
+    heads: dict[str, str] = {}
+    broken: list[str] = []
+    for kind, filename in _vrp.LOG_FILES.items():
+        records, problems = _vrp.verify_log(_heads_records_dir(root) / filename, kind)
+        if problems:
+            broken.append(kind)
+        else:
+            heads[kind] = _vrp.chain_head(records)
+    return heads, broken
+
+
 def ux_respond(payload: dict[str, object], root: Path | None = None) -> dict[str, object]:
     """Write <id>.ux-response.json for a sim-targeted request. Atomic overwrite."""
     base = (root or workspace_root()).resolve()
@@ -322,6 +338,10 @@ def ux_respond(payload: dict[str, object], root: Path | None = None) -> dict[str
         if problems:
             raise ValueError("; ".join(problems))
 
+    heads, broken_logs = _records_heads(base)
+    if status == "done" and broken_logs:
+        raise ValueError(f"refusing 'done': VRP logs fail integrity ({', '.join(broken_logs)})")
+
     response = UXResponse(
         request=request.id,
         status=status,
@@ -332,6 +352,7 @@ def ux_respond(payload: dict[str, object], root: Path | None = None) -> dict[str
         decision_refs=decision_refs,
         impression_refs=impression_refs,
         questions_for_user=questions,
+        records_heads=heads,
         responded_at=datetime.now(UTC),
     )
     target = response_path(base, request.id)
