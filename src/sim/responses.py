@@ -9,6 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ._envelope import sidecar_path, write_envelope
 from .workspace import reject_symlinks, workspace_root
 
 ResponseStatus = Literal["accepted", "rejected", "deferred", "needs_info"]
@@ -80,4 +81,11 @@ def write_response(
         json.dumps(response.model_dump(exclude_none=True), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    sources = [p for p in (request_path, brief_path, report_path) if p is not None and p.is_file()]
+    try:
+        write_envelope(output, "sim", sources, workspace_root())
+    except ValueError:
+        sidecar_path(output).unlink(missing_ok=True)
+        output.unlink()
+        raise
     return output

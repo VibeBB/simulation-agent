@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from sim._envelope import check_envelope, sidecar_path
 from sim.requests import load_request
 from sim.responses import SimulationResponse, write_response
 
@@ -99,3 +100,21 @@ def test_accepted_response_requires_hashed_report() -> None:
                 "verdict": "pass",
             }
         )
+
+
+def test_response_carries_envelope_v3_and_broken_log_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENHANDS_PROJECT_DIR", str(tmp_path))
+    request_path = tmp_path / "env.sim-request.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    report = tmp_path / "sim-report.json"
+    report.write_text('{"verdict":"pass"}\n', encoding="utf-8")
+    output = write_response(request_path, "SIM-47", "accepted", "pass", report)
+    assert check_envelope(output, "sim", tmp_path)[0] == "pass"
+    log = tmp_path / "observations" / "sim" / "decisions.jsonl"
+    log.parent.mkdir(parents=True)
+    log.write_text("{forged\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="fail integrity"):
+        write_response(request_path, "SIM-47", "accepted", "pass", report)
+    assert not output.exists() and not sidecar_path(output).exists()

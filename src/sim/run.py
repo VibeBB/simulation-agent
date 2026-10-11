@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import cast
 
 from . import __version__, plot
+from ._envelope import check_envelope
 from .adapters.calculix import parse_dat, run_calculix
 from .adapters.ngspice import parse_measures, render_deck, run_ngspice
 from .adapters.spice_raw import parse_raw
@@ -42,6 +43,9 @@ from .tools import discover_tools
 from .touchstone import TouchstoneData
 from .touchstone import parse as parse_touchstone
 from .workspace import reject_symlinks, workspace_path
+
+GENERATED_IMPORT_SYSTEMS = frozenset({"circuit", "mech", "firmware"})
+"""Sisters whose imports are generated artifacts with an envelope v3 sidecar."""
 
 
 def _wca_delta(parameter: WcaParameter) -> float:
@@ -258,6 +262,18 @@ def run_simulation(
             if source["system"] != imported.system:
                 raise ValueError(f"expected {imported.system} import, got {source['system']}")
             imports.append(source)
+            if source["system"] in GENERATED_IMPORT_SYSTEMS:
+                status, detail = check_envelope(
+                    Path(str(source["path"])), imported.system, workspace, str(source["sha256"])
+                )
+                checks.append(
+                    check(
+                        f"imports.{imported.system}.{Path(imported.path).name}.provenance",
+                        "imports",
+                        status,
+                        detail,
+                    )
+                )
         except (OSError, ValueError, KeyError, TypeError) as exc:
             checks.append(
                 check(

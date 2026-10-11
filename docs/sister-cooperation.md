@@ -45,8 +45,19 @@ request and brief by sha256 and may carry validated `decision_refs`
 | bard / prodeng / doc / dashboard | v1 `*.sim-request.json`, summaries | `*.sim-response.json`, plots |
 | firmware / fpga | v1 requests | responses |
 
-Sister exports could eventually carry their own sha256 manifests; today
-sim hashes every import and input itself on read.
+sim hashes every import and input itself on read. Generated circuit, mech
+and firmware imports also get an `imports.<system>.<file>.provenance` check
+on their interchange envelope v3 sidecar (`<artifact>.provenance.json`): it
+fails on a malformed sidecar, another producer, other artifact bytes, a
+changed source, or a `decision_refs` id missing from the producer's intact
+VRP log, and is unknown when the sidecar is absent or a source is
+unreadable. The authored wire contract carries no envelope.
+
+`sim respond` writes the same sidecar beside every `*.sim-response.json`
+(`producer: sim`, the request, brief and report hashes as `sources`, and
+sim decisions citing them as `decision_refs`). A broken
+`observations/sim/decisions.jsonl` chain refuses the response and removes
+both files.
 
 ## Change control (ECR/ECO)
 

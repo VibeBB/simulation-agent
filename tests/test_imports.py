@@ -7,6 +7,7 @@ from typing import cast
 
 import pytest
 
+from sim._envelope import sidecar_path, write_envelope
 from sim.brief import load_brief
 from sim.imports import import_source, write_import_record
 from sim.run import run_simulation
@@ -472,3 +473,33 @@ def test_pdn_firmware_import_must_be_declared_as_firmware(tmp_path: Path) -> Non
         for item in report["checks"]
     )
     assert report["verdict"] != "pass"
+
+
+def _provenance(tmp_path: Path, brief: Path) -> dict[str, object]:
+    out_dir = tmp_path / "out" / "kettle"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report = run_simulation(load_brief(brief), brief, tmp_path, out_dir, {"pdn"})
+    return next(
+        cast(dict[str, object], item)
+        for item in report["checks"]
+        if str(item["id"]).endswith(".provenance")
+    )
+
+
+def test_firmware_import_provenance_pass_unknown_and_fail(tmp_path: Path) -> None:
+    path = _fw_power(tmp_path)
+    brief = _fw_pdn_brief(
+        tmp_path, "import:firmware:+3V3", [{"path": path.name, "system": "firmware"}]
+    )
+    assert _provenance(tmp_path, brief)["verdict"] == "unknown"
+    write_envelope(path, "firmware", [], tmp_path)
+    assert _provenance(tmp_path, brief)["verdict"] == "pass"
+    sidecar = sidecar_path(path)
+    body = json.loads(sidecar.read_text(encoding="utf-8"))
+    sidecar.write_text(json.dumps(body | {"decision_refs": ["missing"]}), encoding="utf-8")
+    check = _provenance(tmp_path, brief)
+    assert check["verdict"] == "unknown" and "no firmware decision log" in str(check["detail"])
+    log = tmp_path / "observations" / "firmware" / "decisions.jsonl"
+    log.parent.mkdir(parents=True)
+    log.write_text("{forged\n", encoding="utf-8")
+    assert _provenance(tmp_path, brief)["verdict"] == "fail"
