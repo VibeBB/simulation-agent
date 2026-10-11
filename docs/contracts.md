@@ -117,14 +117,16 @@ in `rationale`), `purpose`, `rationale`, `requested_changes[]`, `inputs[]`
 `artifacts[]` (path+sha256), `reports[]`, `decision_refs[]`,
 `impression_refs[]`, `questions[]`.
 
-## VRP v1 records — `observations/sim/*.jsonl`
+## VRP v2 records — `observations/sim/*.jsonl`
 
-Envelope: `schema_version` 1, `kind`, `plugin` sim, `sequence`,
-`event_id` (sha256 over `{kind, sequence, body}`), `recorded_at`
-(tz-aware ISO-8601). Kinds: `decision` (DecisionRecord — id, stage,
-question, principles, options, chosen, rationale, evidence, assumptions,
-unknowns, risks, revisit_when, decided_by), `stage_impression` (stage,
-artifacts[], impression ≥400 chars/≥3 sentences), `vision_review`
-(image_path+sha256 or source_event_id, model, checklist slug, findings[],
-impression). `valid_event_ids` re-validates every line and recomputes the
-event_id, matching the Stop-hook mirror (`_records.record_errors`).
+Envelope: `schema_version` 2, `kind`, `plugin` sim, `sequence`,
+`prev_event_id`, `event_id` (sha256 over the canonical record), and
+`recorded_at` (tz-aware ISO-8601). Kinds: `decision`, `stage_impression`
+(artifacts[], impression ≥400 chars/≥3 sentences, facets, exact-token
+claims, confidence, unknowns, upstream), `vision_review` (image_path+sha256
+or source_event_id, model, checklist slug, reviewer role, findings[],
+facets, claims with lookback), `review_reconcile`, `insight_status`,
+`song_receipt` and `upstream_read`. `decision_event_ids`,
+`impression_event_ids` and `valid_event_ids` read only intact chains: any
+integrity problem in a log refuses every reference into it, so a forged
+appended line can never back a `decision_refs`/`impression_refs` entry.

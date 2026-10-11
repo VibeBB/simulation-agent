@@ -43,10 +43,22 @@ exclude = [
   "scripts/structural_coverage.py",
   "tests/test_mutation_probe.py",
   "tests/test_structural_coverage.py",
+  "plugins/sim/hooks/scripts/_records.py",
+  "plugins/sim/hooks/scripts/require_records.py",
+  "plugins/sim/hooks/scripts/blind_guard.py",
+  "src/sim/_vrp.py",
 ]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# VRP v2 files are byte-identical to the wire-agent canonical copies.
+"plugins/sim/hooks/scripts/_records.py" = ["ALL"]
+"plugins/sim/hooks/scripts/require_records.py" = ["ALL"]
+"plugins/sim/hooks/scripts/blind_guard.py" = ["ALL"]
+"src/sim/_vrp.py" = ["ALL"]
+"tests/test_records.py" = ["E501"]
 
 [tool.pyright]
 pythonVersion = "3.12"

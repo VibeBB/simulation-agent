@@ -50,6 +50,12 @@ def _is_protected(value: str, root: Path) -> bool:
 
 
 def _is_vision_artifact(path: Path) -> bool:
+    if (
+        len(path.parts) == 2
+        and path.parts[0] == "liaison"
+        and path.name.endswith(".bard-song.json")
+    ):
+        return True
     if path.parts == ("intake", "attachments", "manifest.jsonl"):
         return True
     if len(path.parts) >= 3 and path.parts[:2] == ("observations", "sim"):

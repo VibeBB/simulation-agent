@@ -14,7 +14,7 @@ sources of truth.
 - Only deterministic Python gates emit `pass`, `fail`, or `unknown`. Agent
   commentary is advisory and cannot promote a result.
 - Inter-agent exchange is through validated JSON files in the shared workspace.
-  Never import a sister Python package. VRP v1 records (`observations/sim/`),
+  Never import a sister Python package. VRP v2 records (`observations/sim/`),
   SLP v2 liaison (`liaison/`), and deterministic PNG plots plus vision reviews
   follow the family's shared record protocol.
 - Keep paths inside the workspace; never log or commit secrets.

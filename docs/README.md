@@ -15,8 +15,8 @@ or file an issue.
 - [hooks.md](hooks.md) — every hook by event: matcher, effect, exit codes
 - [contracts.md](contracts.md) — every JSON contract: brief, imports, requests,
   responses, reports, liaison, VRP records
-- [records-and-vision.md](records-and-vision.md) — VRP v1 for sim and the
-  vision-review protocol
+- [records-and-vision.md](records-and-vision.md) — VRP v2 for sim (hash chain,
+  blind review, song receipts) and the vision-review protocol
 - [sister-cooperation.md](sister-cooperation.md) — SLP v2 and v1 request flows
   with the sister plugins
 - [performance-and-limits.md](performance-and-limits.md) — solver timeouts,

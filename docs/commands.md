@@ -21,7 +21,7 @@ in OpenHands; each shells out to `sim_launcher.py`, which runs the matching
 | `/sim:ruggedness` | run only the ruggedness section (vibration, drop, IP) |
 | `/sim:lifetime` | run only the Arrhenius lifetime section |
 | `/sim:rf` | run only the RF section |
-| `/sim:records` | append a decision/impression/vision-review record or show `record status` |
+| `/sim:records` | append a VRP v2 record (decision, impression, vision-review, reconcile, insight, song-receipt, read) or show `record status`/`digest`/`search` |
 | `/sim:ux-inbox` | list SLP v2 liaison requests and malformed files |
 | `/sim:plots <out_dir>` | list an out dir's plots for inline viewing; record a vision review per plot |
 

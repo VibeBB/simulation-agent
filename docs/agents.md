@@ -1,6 +1,6 @@
 # Agents
 
-The plugin declares three agents under `plugins/sim/agents/`. Plugin hooks
+The plugin declares four agents under `plugins/sim/agents/`. Plugin hooks
 do not propagate to subagents, so each agent re-declares the hooks it needs
 in its own frontmatter.
 
@@ -39,3 +39,16 @@ in its own frontmatter.
   every generated plot and sister render with `sim_record_vision_review`,
   flag stale inputs and unanswered liaison work; advisory only — it cannot
   promote or demote a deterministic verdict.
+
+## sim-blind-review — `vibebb-review` model
+
+- Tools: `file_editor`, `grep`, `glob`, `VisionInspectTool`; the `sim` MCP
+  server.
+- Budget: `max_iteration_per_run: 20`, `max_budget_per_run: 1.5`.
+- Hooks: pre-tool `protect-generated` and `blind-guard` (denies reads of
+  `observations/`, advisory files, liaison answers and bard songs); the same
+  post-tool vision hooks.
+- Duties: the independent `blind` (round 1) or `tiebreak` (round 2) vision
+  review of one `out/<name>/plots/*.png` plot, recorded with
+  `sim_record_vision_review` and exact-token claims with `lookback`; the
+  caller reconciles with `sim_record_reconcile`. No verdict authority.

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Port VRP v2 from wire-agent: hash-chained logs, grounded structured
+  impressions, no-re-raise, read receipts, insight lifecycle, blind
+  primary/blind/tiebreak review of `out/**/plots/*.png` (`sim-blind-review`),
+  bard song receipts, and family digest/search through new CLI `record`
+  kinds and MCP tools. Liaison and sim-response refs resolve only against
+  intact chains.
+
 ## 0.1.0
 
 - Add strict `.sim.json` analysis briefs and fail-closed verdict aggregation.

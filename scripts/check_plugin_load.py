@@ -7,7 +7,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_DIR = ROOT / "plugins" / "sim"
-EXPECTED_AGENTS = {"sim-analyst", "sim-liaison", "sim-review"}
+EXPECTED_AGENTS = {"sim-analyst", "sim-blind-review", "sim-liaison", "sim-review"}
 EXPECTED_SKILLS = {
     "sim-brief",
     "sim-brief-rules",
@@ -125,7 +125,7 @@ def main() -> int:
         print("\n".join(failures), file=sys.stderr)
         return 1
     print(
-        "plugin-load OK: 3 agents, 18 commands, 13 skills, "
+        "plugin-load OK: 4 agents, 18 commands, 13 skills, "
         "session-start/user-prompt-submit/pre-tool-use/stop/post-tool-use hooks"
     )
     return 0

@@ -18,8 +18,14 @@
 | `sim_spice` … `sim_lifetime` | `brief` (path) | `out/<name>/` | one analysis each (10 tools); inline plots |
 | `sim_plots` | `out_dir` | nothing | returns the report's plot list + inline PNGs |
 | `sim_record_decision` | `DecisionInput` | `observations/sim/decisions.jsonl` | appends a validated VRP record |
-| `sim_record_impression` | `StageImpressionInput` | `observations/sim/impressions.jsonl` | long-form stage impression |
-| `sim_record_vision_review` | `VisionReviewInput` | `observations/sim/vision-reviews.jsonl` | checklist findings + impression |
+| `sim_record_impression` | `StageImpressionInput` | `observations/sim/impressions.jsonl` | long-form stage impression with facets, exact-token claims, confidence, unknowns, upstream |
+| `sim_record_vision_review` | `VisionReviewInput` | `observations/sim/vision-reviews.jsonl` | checklist findings, reviewer role (`primary`/`blind`/`tiebreak`), claims with lookback |
+| `sim_record_reconcile` | `ReconcileInput` | `observations/sim/reconciles.jsonl` | closes a dual-review round; a round-2 split stays `unknown` |
+| `sim_record_insight` | `InsightStatusInput` | `observations/sim/insights.jsonl` | adopted/rejected/deferred/disputed/resolved lifecycle |
+| `sim_record_song_receipt` | `SongReceiptInput` | `observations/sim/song-receipts.jsonl` | one-time SHA-pinned receipt of `liaison/<id>.bard-song.json` |
+| `sim_record_read` | `ReadInput` | `observations/sim/reads.jsonl` | read receipt for a sister impression |
+| `sim_records_digest` | none | nothing | family digest: recent impressions, open concerns, unread sister records |
+| `sim_records_search` | query + filters | nothing | matching family records with event IDs |
 | `sim_records_status` | none | nothing | record coverage/malformed counts |
 | `sim_ux_inbox` | none | nothing | SLP v2 inbox states + malformed list |
 | `sim_ux_respond` | ux-response JSON | `liaison/<id>.ux-response.json` | enforces done/needs_info rules |
