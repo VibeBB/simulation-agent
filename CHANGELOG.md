@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- SLP v2 responses carry `records_heads`, the chain head of every intact
+  VRP log at answer time; UX-creator checks it on receipt. `done` is
+  refused while any VRP log fails integrity.
 - Port VRP v2 from wire-agent: hash-chained logs, grounded structured
   impressions, no-re-raise, read receipts, insight lifecycle, blind
   primary/blind/tiebreak review of `out/**/plots/*.png` (`sim-blind-review`),
