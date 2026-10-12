@@ -45,6 +45,12 @@ one analysis section:
   the 50/12.5/2.5/1.0 mm probe; dust digits 5/6 and any water digit are
   `unknown` (IEC 60529 test required), and a water digit with unsealed
   openings is `fail`.
+- `mrubyc`: `MrubycSection` — `sources` (workspace-relative `.rb` UX
+  logic), optional `memory_size` (default 64 KiB) and `expect` transcript
+  substrings. `mrubyc.tools` is `unknown` when emcc/node/mrbc or the
+  mruby/c tree is missing; `mrubyc.build` fails on compile/link errors;
+  `mrubyc.vm` runs every VM task under Node and `mrubyc.transcript[<x>]`
+  checks each expectation against the transcript.
 - `lifetime`: `LifetimeSection` — `model` `arrhenius`, `parts[]` of
   `LifetimePart` (`ref`, `rated_life_h` at `rated_temp_c`, explicit
   `activation_energy_ev`, `profile[]` of `LifetimeStress`

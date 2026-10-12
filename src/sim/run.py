@@ -38,6 +38,7 @@ from .brief import (
 )
 from .gates import GateCheck, check
 from .imports import import_source
+from .mrubyc import run_mrubyc
 from .report import PlotInfo, SimulationReport, write_outputs
 from .tools import discover_tools
 from .touchstone import TouchstoneData
@@ -242,6 +243,7 @@ def run_simulation(
         "rf",
         "ruggedness",
         "lifetime",
+        "mrubyc",
     }
     if only is not None and not only <= known:
         raise ValueError(f"unknown analysis in --only: {', '.join(sorted(only - known))}")
@@ -524,6 +526,8 @@ def run_simulation(
                         "S-parameter data is unavailable",
                     )
                 )
+    if "mrubyc" in selected and brief.mrubyc is not None:
+        checks.extend(run_mrubyc(brief.mrubyc, workspace, out_dir))
     if not checks:
         checks.append(
             check("simulation.selection", "simulation", "unknown", "no selected analysis sections")
