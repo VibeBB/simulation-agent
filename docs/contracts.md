@@ -46,11 +46,18 @@ one analysis section:
   `unknown` (IEC 60529 test required), and a water digit with unsealed
   openings is `fail`.
 - `mrubyc`: `MrubycSection` — `sources` (workspace-relative `.rb` UX
-  logic), optional `memory_size` (default 64 KiB) and `expect` transcript
-  substrings. `mrubyc.tools` is `unknown` when emcc/node/mrbc or the
-  mruby/c tree is missing; `mrubyc.build` fails on compile/link errors;
+  logic), optional `memory_size` (default 64 KiB), `expect` transcript
+  substrings, and `api_spec` (workspace-relative `*.mruby-api.json`
+  authored by UX-creator). `mrubyc.tools` is `unknown` when emcc/node/mrbc
+  or the mruby/c tree is missing; `mrubyc.api` fails on a missing or
+  unparsable spec; `mrubyc.build` fails on compile/link errors;
   `mrubyc.vm` runs every VM task under Node and `mrubyc.transcript[<x>]`
-  checks each expectation against the transcript.
+  checks each expectation against the transcript. With `api_spec` set,
+  `sim_api_stub.{c,h}` is generated into `out/<name>/mrubyc/api/` and
+  registered before task creation: stub methods log
+  `API <Class>.<method>(<arg>=<value>)` lines to the transcript, honor
+  `system_task` vm_id and `arg_errors` semantics, and return neutral
+  values of the declared type.
 - `lifetime`: `LifetimeSection` — `model` `arrhenius`, `parts[]` of
   `LifetimePart` (`ref`, `rated_life_h` at `rated_temp_c`, explicit
   `activation_energy_ev`, `profile[]` of `LifetimeStress`

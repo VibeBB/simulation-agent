@@ -11,7 +11,9 @@
   "spice": {
     "deck": {
       "netlist_path": "examples/buck-regulator/buck.cir",
-      "analyses": [".ac dec 20 10 10k"],
+      "analyses": [
+        ".ac dec 20 10 10k"
+      ],
       "measures": [
         {
           "name": "vout",
@@ -31,7 +33,10 @@
         "max_drop_v": 0.1,
         "temperature_c": 60,
         "source_node": "regulator",
-        "nodes": ["regulator", "load"],
+        "nodes": [
+          "regulator",
+          "load"
+        ],
         "branches": [
           {
             "ref": "OUT_TRACE",
@@ -45,7 +50,13 @@
             "allowed_rise_c": 10
           }
         ],
-        "loads": [{"node": "load", "current_a": "import:VOUT", "min_v": 4.8}]
+        "loads": [
+          {
+            "node": "load",
+            "current_a": "import:VOUT",
+            "min_v": 4.8
+          }
+        ]
       }
     ]
   },
@@ -57,14 +68,24 @@
         "power_w": 2.0,
         "tj_max_c": 125,
         "derating_margin_c": 10,
-        "path": {"theta_ja_c_per_w": 20}
+        "path": {
+          "theta_ja_c_per_w": 20
+        }
       }
     ]
   },
   "wca": {
     "parameters": [
-      {"name": "Rseries", "nominal": 1000, "tol_pct": 5},
-      {"name": "Cfilter", "nominal": 1e-6, "tol_pct": 5}
+      {
+        "name": "Rseries",
+        "nominal": 1000,
+        "tol_pct": 5
+      },
+      {
+        "name": "Cfilter",
+        "nominal": 1e-06,
+        "tol_pct": 5
+      }
     ],
     "outputs": [
       {
@@ -80,26 +101,47 @@
         "max": 0.79
       }
     ],
-    "methods": ["EVA", "RSS", "MC"],
+    "methods": [
+      "EVA",
+      "RSS",
+      "MC"
+    ],
     "mc_samples": 16,
     "seed": 2026,
     "spice_mc_samples": 64
   },
   "emc": {
     "interfaces": [
-      {"connector_ref": "J1", "nets": ["VIN"], "esd_level": 2, "external": true}
+      {
+        "connector_ref": "J1",
+        "nets": [
+          "VIN"
+        ],
+        "esd_level": 2,
+        "external": true
+      }
     ],
     "protections": [
       {
         "ref": "D1",
-        "nets": ["VIN"],
+        "nets": [
+          "VIN"
+        ],
         "vrwm_v": 12,
         "vclamp_v": 18,
         "esd_rating_contact_kv": 8,
         "distance_to_connector_mm": 2
       }
     ],
-    "protected_devices": [{"ref": "U1", "nets": ["VIN"], "abs_max_v": 20}],
+    "protected_devices": [
+      {
+        "ref": "U1",
+        "nets": [
+          "VIN"
+        ],
+        "abs_max_v": 20
+      }
+    ],
     "signals": [
       {
         "net": "VIN",
@@ -135,21 +177,64 @@
     "decoupling": [
       {
         "ic_ref": "U1",
-        "power_pins": ["VIN"],
-        "capacitors": [{"ref": "C1", "distance_mm": 2}]
+        "power_pins": [
+          "VIN"
+        ],
+        "capacitors": [
+          {
+            "ref": "C1",
+            "distance_mm": 2
+          }
+        ]
       }
     ]
   },
   "dft": {
-    "nets": ["VIN", "VOUT", "GND", "SW"],
+    "nets": [
+      "VIN",
+      "VOUT",
+      "GND",
+      "SW"
+    ],
     "required": "all",
     "test_points": [
-      {"ref": "TP1", "net": "VIN", "pad_diameter_mm": 1, "x_mm": 0, "y_mm": 0, "side": "top"},
-      {"ref": "TP2", "net": "VOUT", "pad_diameter_mm": 1, "x_mm": 3, "y_mm": 0, "side": "top"},
-      {"ref": "TP3", "net": "GND", "pad_diameter_mm": 1, "x_mm": 6, "y_mm": 0, "side": "top"},
-      {"ref": "TP4", "net": "SW", "pad_diameter_mm": 1, "x_mm": 9, "y_mm": 0, "side": "top"}
+      {
+        "ref": "TP1",
+        "net": "VIN",
+        "pad_diameter_mm": 1,
+        "x_mm": 0,
+        "y_mm": 0,
+        "side": "top"
+      },
+      {
+        "ref": "TP2",
+        "net": "VOUT",
+        "pad_diameter_mm": 1,
+        "x_mm": 3,
+        "y_mm": 0,
+        "side": "top"
+      },
+      {
+        "ref": "TP3",
+        "net": "GND",
+        "pad_diameter_mm": 1,
+        "x_mm": 6,
+        "y_mm": 0,
+        "side": "top"
+      },
+      {
+        "ref": "TP4",
+        "net": "SW",
+        "pad_diameter_mm": 1,
+        "x_mm": 9,
+        "y_mm": 0,
+        "side": "top"
+      }
     ],
-    "debug_header": {"kind": "swd", "ref": "J2"},
+    "debug_header": {
+      "kind": "swd",
+      "ref": "J2"
+    },
     "bga_refs": [],
     "boundary_scan_chain": false
   },
@@ -167,9 +252,21 @@
       "yield_mpa": 276,
       "density_kg_m3": 2700
     },
-    "load": {"kind": "tip_force", "force_n": 10, "direction": "-z"},
-    "mesh": {"nx": 2, "ny": 1, "nz": 1, "element": "C3D8I"},
-    "limits": {"min_safety_factor": 2, "max_deflection_mm": 1},
+    "load": {
+      "kind": "tip_force",
+      "force_n": 10,
+      "direction": "-z"
+    },
+    "mesh": {
+      "nx": 2,
+      "ny": 1,
+      "nz": 1,
+      "element": "C3D8I"
+    },
+    "limits": {
+      "min_safety_factor": 2,
+      "max_deflection_mm": 1
+    },
     "cross_check_tolerance": 0.15,
     "timeout_s": 60
   },
@@ -194,6 +291,17 @@
         "s11_max_db": -15,
         "s21_min_db": -2
       }
+    ]
+  },
+  "mrubyc": {
+    "sources": [
+      "examples/buck-regulator/ux/app.rb"
+    ],
+    "api_spec": "examples/buck-regulator/api/buck.mruby-api.json",
+    "expect": [
+      "buck ux ready",
+      "API LED.set(part=led1, state=true)",
+      "API LED.toggle(part=led1)"
     ]
   }
 }
