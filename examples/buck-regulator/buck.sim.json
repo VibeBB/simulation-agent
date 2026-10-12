@@ -195,5 +195,14 @@
         "s21_min_db": -2
       }
     ]
+  },
+  "mrubyc": {
+    "sources": ["examples/buck-regulator/ux/app.rb"],
+    "api_spec": "examples/buck-regulator/api/buck.mruby-api.json",
+    "expect": [
+      "buck ux ready",
+      "API LED.set(part=led1, state=true)",
+      "API LED.toggle(part=led1)"
+    ]
   }
 }

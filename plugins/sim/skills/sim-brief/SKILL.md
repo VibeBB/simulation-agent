@@ -19,6 +19,7 @@ Run `sim schema` for the exact v0.1 JSON Schema. Files use the `*.sim.json` suff
 | `description` | Optional project context; it does not affect calculations. |
 | `imports` | Optional `{path, system}` records, where `system` is `circuit`, `mech`, `wire`, or `bard`. |
 | `spice`, `pdn`, `thermal`, `wca`, `emc`, `dft`, `fem`, `rf` | Optional section objects; each section has its own field and unit reference in its skill. |
+| `mrubyc` | Optional mruby/c Emscripten leg: `sources` (workspace `.rb` files), `memory_size` (default 64 KiB), `expect` transcript substrings, `api_spec` (UX-authored `*.mruby-api.json` — generates `sim_api_stub` C bindings that log `API <Class>.<method>(<args>)` calls so `expect` lines assert device-API behavior). |
 
 ```json
 {
@@ -31,7 +32,7 @@ Run `sim schema` for the exact v0.1 JSON Schema. Files use the `*.sim.json` suff
 
 ## Gate interpretation
 
-Section gates are named `spice.<measure>`, `pdn.<rail>.*`, `thermal.<ref>.tj`, `wca.<method>.<output>`, `emc.*`, `dft.*`, `fem.*`, and `rf.*`. `pass` means supplied inputs meet the implemented predicate; `fail` means a measured or computed limit is violated; `unknown` means required evidence, a tool, or a supported calculation is missing. An empty section can be valid JSON yet still yield `unknown`.
+Section gates are named `spice.<measure>`, `pdn.<rail>.*`, `thermal.<ref>.tj`, `wca.<method>.<output>`, `emc.*`, `dft.*`, `fem.*`, `rf.*`, and `mrubyc.{tools,api,build,vm,transcript[<x>]}`. `pass` means supplied inputs meet the implemented predicate; `fail` means a measured or computed limit is violated; `unknown` means required evidence, a tool, or a supported calculation is missing. An empty section can be valid JSON yet still yield `unknown`.
 
 The brief schema validates declarations, not their engineering adequacy. Formulas, units, and simplifications are documented by the relevant section skills. A successful parse is never evidence of a passing engineering gate.
 

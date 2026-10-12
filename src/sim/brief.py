@@ -644,6 +644,7 @@ class MrubycSection(Model):
     sources: list[str] = Field(min_length=1)
     memory_size: int = Field(default=64 * 1024, ge=1024, le=4 * 1024 * 1024)
     expect: list[str] = Field(default_factory=lambda: list[str]())
+    api_spec: str | None = None
 
 
 class SimulationBrief(Model):
