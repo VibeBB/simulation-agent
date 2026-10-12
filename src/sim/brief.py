@@ -640,6 +640,12 @@ class LifetimeSection(Model):
         return self
 
 
+class MrubycSection(Model):
+    sources: list[str] = Field(min_length=1)
+    memory_size: int = Field(default=64 * 1024, ge=1024, le=4 * 1024 * 1024)
+    expect: list[str] = Field(default_factory=lambda: list[str]())
+
+
 class SimulationBrief(Model):
     schema_version: Literal[1]
     name: str = Field(pattern=r"^[A-Za-z0-9_-]+$")
@@ -655,6 +661,7 @@ class SimulationBrief(Model):
     rf: RfSection | None = None
     ruggedness: RuggednessSection | None = None
     lifetime: LifetimeSection | None = None
+    mrubyc: MrubycSection | None = None
 
     @model_validator(mode="after")
     def require_section(self) -> SimulationBrief:
@@ -671,6 +678,7 @@ class SimulationBrief(Model):
                 "rf",
                 "ruggedness",
                 "lifetime",
+                "mrubyc",
             )
         ):
             raise ValueError("at least one analysis section is required")

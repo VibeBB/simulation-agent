@@ -14,6 +14,50 @@ ARG CALCULIX_CCX_DEB_SHA256=709b2d994699168f2754bd16117d51cef3241e268a7dfab185b8
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION}@${UV_DIGEST} AS uv
 
+# Emscripten SDK stage: the mruby/c WASM leg runs UX .rb sources through
+# the mruby/c VM under Node — the same toolchain dashboard-agent uses.
+FROM emscripten/emsdk:6.0.10@sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b266134d4ba27449af7aebf65 AS emscripten
+
+# mruby/mrubyc build stage: mrbc compiles UX .rb sources into bytecode
+# linked into the mruby/c WASM VM. Same pins as firmware-agent
+# (mruby 4.0.0, mrubyc master for the emscripten HAL).
+FROM ${BASE_IMAGE} AS mruby
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG MRUBY_VERSION=4.0.0
+ARG MRUBY_SHA256=e2ea271dbed14e9f2b33df773ae447b747dbc242ce2675022c0a57efea85a7b4
+ARG MRUBYC_REF=2dec4802b09be1fc12f388d3c9267ffd9dc6c404
+ARG MRUBYC_SHA256=0860de6a2b4e8adf682e14f3e0f1df7114abdb8749be23ea39cf0133f5b16b84
+
+COPY --chmod=0755 docker/apt-sources-fallback /usr/local/bin/
+RUN apt-sources-fallback \
+        bison \
+        build-essential \
+        ca-certificates \
+        curl \
+        ruby \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl --fail --location --silent --show-error \
+        --retry 5 --retry-delay 10 --retry-all-errors \
+        --output /tmp/mruby.tar.gz \
+        "https://github.com/mruby/mruby/archive/refs/tags/${MRUBY_VERSION}.tar.gz" \
+    && echo "${MRUBY_SHA256}  /tmp/mruby.tar.gz" | sha256sum --check \
+    && mkdir -p /opt/mruby-src /opt/mruby/bin \
+    && tar -xzf /tmp/mruby.tar.gz -C /opt/mruby-src --strip-components=1 \
+    && curl --fail --location --silent --show-error \
+        --retry 5 --retry-delay 10 --retry-all-errors \
+        --output /tmp/mrubyc.tar.gz \
+        "https://github.com/mrubyc/mrubyc/archive/${MRUBYC_REF}.tar.gz" \
+    && echo "${MRUBYC_SHA256}  /tmp/mrubyc.tar.gz" | sha256sum --check \
+    && mkdir -p /opt/mrubyc \
+    && tar -xzf /tmp/mrubyc.tar.gz -C /opt/mrubyc --strip-components=1 \
+    && rm /tmp/mruby.tar.gz /tmp/mrubyc.tar.gz
+
+WORKDIR /opt/mruby-src
+RUN ruby ./minirake -j"$(nproc)" && cp build/host/bin/mrbc /opt/mruby/bin/mrbc
+
 FROM ${BASE_IMAGE} AS sim-tools
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -32,8 +76,10 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
     UV_PYTHON_INSTALL_DIR=/opt/uv-python \
-    PATH=/opt/simulation-agent/.venv/bin:/opt/uv-python/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    PATH=/opt/simulation-agent/.venv/bin:/opt/uv-python/bin:/opt/mruby/bin:/opt/emsdk:/opt/emsdk/upstream/emscripten:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     PYTHONPYCACHEPREFIX=/tmp/sim-pycache \
+    SIM_MRUBYC_DIR=/opt/mrubyc \
+    EMSDK=/opt/emsdk \
     SIM_REQUIRED_TOOLS=ngspice,ccx
 
 LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agent" \
@@ -44,7 +90,15 @@ LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agen
       sim.calculix-ccx.version="${CALCULIX_CCX_VERSION}"
 
 COPY --from=uv /uv /uvx /usr/local/bin/
+COPY --from=emscripten /emsdk /opt/emsdk
+COPY --from=mruby /opt/mruby /opt/mruby
+COPY --from=mruby /opt/mrubyc /opt/mrubyc
 COPY --chmod=0755 docker/apt-sources-fallback /usr/local/bin/
+
+# Node for the mruby/c WASM leg: the emsdk stage bundles its own node
+# under /opt/emsdk/node/*/bin; link it onto PATH.
+RUN ln -sf /opt/emsdk/node/*/bin/node /usr/local/bin/node \
+    && node --version && emcc --version | head -1 && mrbc -h 2>&1 | head -1 || true
 
 # archive.ubuntu.com's port-80 front end has repeated outages (2026-08/09/10);
 # apt-sources-fallback swaps the deb822 sources to Canonical's EC2 mirror
