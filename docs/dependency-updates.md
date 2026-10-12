@@ -40,14 +40,14 @@ Full changelog review: [Solver sid-.deb adoption (ngspice 47, CalculiX 2.23)](re
 | ngspice | resolute apt `45.2+ds-1` -> sid `.deb` `47+ds-1` | Adopted. PSS update, small-signal noise for code models, `.sndprint`/`.sndparam`, VDMOS soft-recovery diode, adc/dac_bridge multi-bit, dc-sweep capacitance, `newcompat.ki`, TSTEP/TSTOP, `pyplot` reviewed; see research doc for adoption/non-adoption notes. |
 | calculix-ccx | resolute apt `2.21-1build1` -> sid `.deb` `2.23-1` | Adopted. `*DAMAGE INITIATION`, submodel heat transfer, C3D8I correction, `*REFINE MESH,SMOOTHING ONLY`, composite-shell `*HEAT TRANSFER`, contact in `*CYCLIC SYMMETRY MODEL`, `*EQUATION` node-set first term reviewed; see research doc. |
 
-### 2026-10-07 — sdk 1.53.0
+### 2026-10-07 — sdk 1.54.0
 
-Full changelog review: [SDK v1.53.0 feature evaluation](research/sdk-v1.53.0-feature-evaluation.md).
+Full changelog review: [SDK v1.54.0 feature evaluation](research/sdk-v1.54.0-feature-evaluation.md).
 
 | Component | From -> To | Decision |
 | --- | --- | --- |
-| `openhands-sdk` / `openhands-tools` (sdk-check group) | 1.52.0 -> 1.53.0 | Adopted. All 6 upstream PRs reviewed; skills-scan fix adopted implicitly, canvas-extension icon available but not adopted (no canvas extensions), release-CI/docs/test changes not applicable. |
-| mcp | deferred at <2 | openhands-sdk 1.53.0 still requires `fastmcp<4` -> `mcp<2`; deferral reason refreshed to cite 1.53.0. |
+| `openhands-sdk` / `openhands-tools` (sdk-check group) | 1.52.0 -> 1.54.0 | Adopted. All 6 upstream PRs reviewed; skills-scan fix adopted implicitly, canvas-extension icon available but not adopted (no canvas extensions), release-CI/docs/test changes not applicable. |
+| mcp | deferred at <2 | openhands-sdk 1.54.0 still requires `fastmcp<4` -> `mcp<2`; deferral reason refreshed to cite 1.54.0. |
 
 ### 2026-10-05 — sdk 1.52.0
 
@@ -62,9 +62,9 @@ Full changelog review: [SDK v1.52.0 feature evaluation](research/sdk-v1.52.0-fea
 
 | Component | From -> To | Decision |
 | --- | --- | --- |
-| uv | 0.12.22 -> 0.12.23 | Adopted. `required-version`, `ARG UV_VERSION`, `UV_DIGEST`, `sim.uv.version` OCI label, tests, README updated. |
+| uv | 0.12.22 -> 0.13.0 | Adopted. `required-version`, `ARG UV_VERSION`, `UV_DIGEST`, `sim.uv.version` OCI label, tests, README updated. |
 | Python pins | 3.12 -> 3.14 | Adopted. Image `uv python install`/`python3.x` paths, `.python-version`, scalar workflow pins, and a new ci.yml matrix leg. |
-| Python 3.15 | - -> canary leg | Adopted as experimental matrix leg (step-level `continue-on-error` + `::warning::` report). Deferred as default: `openhands-sdk` -> `fastuuid==0.14.0` -> PyO3 0.26 caps interpreters at 3.14; the leg detects when upstream wheels land. |
+| Python 3.15 | - -> canary leg | Adopted as experimental matrix leg (step-level `continue-on-error` + `::warning::` report). Deferred as default (now recorded for every `python-version` surface via a `*` deferral): `openhands-sdk` -> `litellm` -> `fastuuid==0.14.0` ships only an sdist whose bundled PyO3 fails to build on 3.15 (`uv sync` fails at maturin, verified 2026-10-12); `pydantic-core>=2.50` ships cp315 wheels, so fastuuid is the sole blocker. The leg detects when a 3.15-capable fastuuid lands. |
 
 ### 2026-10-03 — sdk 1.51.0, uv 0.12.22, openEMS pin
 
@@ -75,6 +75,7 @@ Full changelog review: [SDK v1.51.0 feature evaluation](research/sdk-v1.51.0-fea
 | `openhands-sdk` / `openhands-tools` (sdk-check group) | 1.50.1 -> 1.51.0 | Adopted. All 18 upstream commits reviewed; fixes adopted implicitly, agent-profiles `tools:` contract already matches plugin frontmatter. |
 | uv | 0.12.21 -> 0.12.22 | Adopted. `required-version`, `ARG UV_VERSION`, `UV_DIGEST` (multi-arch index digest), `sim.uv.version` OCI label, tests, README, AGENTS updated. |
 | `OPENEMS_COMMIT` | 89c21b8 -> 81f32e0 | Adopted. One super-repo commit bumping CSXCAD (numpy-scalar material values) and openEMS (DebyeMaterial fix, memory free, example). Build unchanged. |
+| `OPENEMS_COMMIT` | 81f32e0 -> 974294b | Adopted. Two super-repo commits: submodule refresh + `release: v0.37.0` tag. Build unchanged. |
 | anchore/sbom-action | already v0.24.3 | No change; pinned at the v0.24.3 commit SHA already. |
 | `KICAD_RFSIM_COMMIT` | already at HEAD | No change; pin equals upstream `main`. |
 | ruff | already 0.16.10 | Already resolved at 0.16.10 in `uv.lock`; no new diagnostics. |

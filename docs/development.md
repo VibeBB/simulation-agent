@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-uv sync --locked          # uv 0.12.23, Python 3.12+, locked deps
+uv sync --locked          # uv 0.13.0, Python 3.12+, locked deps
 ```
 
 Runtime deps are `pydantic>=2` and `mcp>=1.29,<2`; the `sdk-check` group
