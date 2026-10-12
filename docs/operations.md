@@ -213,6 +213,22 @@ Suppressions: `.hadolint.yaml` waivers above; `.trivyignore` holds
 time-boxed finding IDs — entries must carry an `exp:` date and a
 rationale line here when added.
 
+2026-10-12 publish-gate findings are vendored upstream payloads that no
+in-repo change can clear, waived to 2027-01-12 and re-verified on the
+next `ubuntu:26.04` base-digest / emsdk-stage bump:
+
+- `/usr/bin/pebble` — Ubuntu archive pebble 2.6.0+ds1-1build1 built with
+  Go 1.26.7 (CVE-2026-78667/78669/97031); the resolute archive still
+  ships that build, unfixable until Ubuntu rebuilds against Go >=1.26.9.
+- emsdk vendored payloads — `@typescript/typescript-linux-x64` (tsgo)
+  built with Go 1.26.4 (10 stdlib/x-text HIGHs) and node/npm's upstream
+  bundled deps (brace-expansion, browserslist, fast-uri, flatted,
+  ip-address, js-yaml, nanoid, picomatch, postcss, source-map-js, tar,
+  undici). The emscripten stage was bumped to 6.0.12 in this change, but
+  6.0.12 vendors the same payload versions (verified by scanning
+  `emscripten/emsdk:6.0.12` directly) — the fix lands only when
+  emscripten revendors.
+
 The weekly audit runs Lynis with the committed
 `docker/lynis-container.prf` profile, which skips tests that are
 inapplicable inside a container (kernel/systemd/mounts/storage/
@@ -242,9 +258,9 @@ they lapse.
 
 Every job in every workflow uses `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.
 
-## SDK 1.53.0 feature evaluation
+## SDK 1.54.0 feature evaluation
 
-See [simulation-agent SDK v1.53.0 feature evaluation](research/sdk-v1.53.0-feature-evaluation.md).
+See [simulation-agent SDK v1.54.0 feature evaluation](research/sdk-v1.54.0-feature-evaluation.md).
 
 ## Digest-lock PR verification
 

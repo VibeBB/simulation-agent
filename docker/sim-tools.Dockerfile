@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
-ARG UV_VERSION=0.12.23
-ARG UV_DIGEST=sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21
+ARG UV_VERSION=0.13.0
+ARG UV_DIGEST=sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168
 # ngspice and calculix-ccx track Debian unstable (sid) instead of the
 # resolute apt pins so the image ships the newest solver releases; the
 # .debs are fetched from the permanent snapshot.debian.org archive and
@@ -16,7 +16,7 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION}@${UV_DIGEST} AS uv
 
 # Emscripten SDK stage: the mruby/c WASM leg runs UX .rb sources through
 # the mruby/c VM under Node — the same toolchain dashboard-agent uses.
-FROM emscripten/emsdk:6.0.10@sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b266134d4ba27449af7aebf65 AS emscripten
+FROM emscripten/emsdk:6.0.12@sha256:77638e6c215a65f25a704c0c831d5c2463a8c0468a58c6cb82489dbe621dfa05 AS emscripten
 
 # mruby/mrubyc build stage: mrbc compiles UX .rb sources into bytecode
 # linked into the mruby/c WASM VM. Same pins as firmware-agent
@@ -86,7 +86,7 @@ ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
 LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agent" \
       org.opencontainers.image.licenses="BSD-3-Clause" \
       org.opencontainers.image.revision="${IMAGE_REVISION}" \
-      sim.uv.version="0.12.23" \
+      sim.uv.version="0.13.0" \
       sim.ngspice.version="${NGSPICE_VERSION}" \
       sim.calculix-ccx.version="${CALCULIX_CCX_VERSION}"
 
@@ -170,7 +170,7 @@ ENTRYPOINT ["python", "-m", "sim"]
 FROM ${BASE_IMAGE} AS openems-build
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG OPENEMS_COMMIT=81f32e03d514f270e679b63e8861d24eaa03a7e2
+ARG OPENEMS_COMMIT=974294ba7d812ef5a46a4760593057aee7ce6866
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
 
