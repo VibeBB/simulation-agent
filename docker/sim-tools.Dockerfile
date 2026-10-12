@@ -40,14 +40,14 @@ RUN apt-sources-fallback \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl --fail --location --silent --show-error \
-        --retry 5 --retry-delay 10 --retry-all-errors \
+        --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
         --output /tmp/mruby.tar.gz \
         "https://github.com/mruby/mruby/archive/refs/tags/${MRUBY_VERSION}.tar.gz" \
     && echo "${MRUBY_SHA256}  /tmp/mruby.tar.gz" | sha256sum --check \
     && mkdir -p /opt/mruby-src /opt/mruby/bin \
     && tar -xzf /tmp/mruby.tar.gz -C /opt/mruby-src --strip-components=1 \
     && curl --fail --location --silent --show-error \
-        --retry 5 --retry-delay 10 --retry-all-errors \
+        --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
         --output /tmp/mrubyc.tar.gz \
         "https://github.com/mrubyc/mrubyc/archive/${MRUBYC_REF}.tar.gz" \
     && echo "${MRUBYC_SHA256}  /tmp/mrubyc.tar.gz" | sha256sum --check \
@@ -115,11 +115,11 @@ RUN apt-sources-fallback \
 # Debian sid .debs: the sid pins reach ngspice 47 and CalculiX 2.23 while
 # the resolute apt channel is at ngspice 45.2 / calculix-ccx 2.21.
 RUN curl --fail --location --silent --show-error \
-        --retry 5 --retry-delay 10 --retry-all-errors \
+        --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
         --output /tmp/ngspice.deb \
         "${NGSPICE_DEB_URL}" \
     && curl --fail --location --silent --show-error \
-        --retry 5 --retry-delay 10 --retry-all-errors \
+        --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
         --output /tmp/calculix-ccx.deb \
         "${CALCULIX_CCX_DEB_URL}" \
     && echo "${NGSPICE_DEB_SHA256}  /tmp/ngspice.deb" | sha256sum --check \
