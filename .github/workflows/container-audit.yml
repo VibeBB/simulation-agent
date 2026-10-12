@@ -174,6 +174,11 @@ jobs:
               # payload, so the retry keys on the MisconfSummary content, not
               # the exit code.
               for attempt in 1 2 3; do
+                # A poisoned checks bundle in the seeded cache yields the
+                # empty payload every attempt, so wipe and re-seed per try.
+                rm -rf "$TRIVY_CACHE_DIR"
+                mkdir -p "$TRIVY_CACHE_DIR"
+                cp -a "$RUNNER_TEMP/trivy-cache/." "$TRIVY_CACHE_DIR/"
                 if trivy image --compliance docker-cis-1.6.0 --include-non-failures --report all \
                   --ignorefile /dev/null --format json \
                   --output "$RUNNER_TEMP/trivy-cis.json" "${PRIMARY_IMAGE}" && \
