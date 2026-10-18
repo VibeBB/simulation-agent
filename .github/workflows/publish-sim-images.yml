@@ -155,6 +155,26 @@ jobs:
       # wait at the group end still lands the full JSON scan before the
       # gate, so the diagnostic report exists even when the gate fails —
       # exactly when it is needed.
+      # Pre-pull the vulnerability and java DBs through a retry loop:
+      # a transient stream error mid-scan is fatal inside trivy-action
+      # and cannot be retried there, so warm the scan leg's private
+      # cache-dir and the default ~/.cache/trivy used by `trivy convert`
+      # (the java DB is cached for 3 days once downloaded).
+      - name: Warm Trivy DB caches
+        run: |
+          set -euo pipefail
+          for dir in "$HOME/.cache/trivy" "$RUNNER_TEMP/trivy-tools-json"; do
+            mkdir -p "$dir"
+            for attempt in 1 2 3; do
+              if docker run --rm -v "$dir:/cache" aquasec/trivy:0.76.0 \
+                  --cache-dir /cache image --download-db-only --download-java-db-only; then
+                break
+              fi
+              [ "$attempt" = 3 ] && exit 1
+              echo "::warning::trivy DB warm-up attempt $attempt failed; retrying"
+              sleep $((attempt * 20))
+            done
+          done
       - parallel:
           - name: Scan tools image (Trivy JSON)
             id: trivy-scan

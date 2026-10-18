@@ -125,6 +125,11 @@ RUN curl --fail --location --silent --show-error \
     && echo "${NGSPICE_DEB_SHA256}  /tmp/ngspice.deb" | sha256sum --check \
     && echo "${CALCULIX_CCX_DEB_SHA256}  /tmp/calculix-ccx.deb" | sha256sum --check \
     && apt-sources-fallback /tmp/ngspice.deb /tmp/calculix-ccx.deb \
+    # Apply every Debian/Ubuntu security fix published after the pinned
+    # base digest so the publish Trivy gate cannot trip on fixable
+    # findings (apt always pulls the latest published fix).
+    && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* /tmp/ngspice.deb /tmp/calculix-ccx.deb \
     && mkdir -p /usr/share/doc/solvers \
     && printf '%s\n' \
