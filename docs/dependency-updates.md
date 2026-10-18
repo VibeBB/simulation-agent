@@ -31,6 +31,19 @@ update candidates.
 
 ## Update history
 
+### 2026-10-18 — sdk 1.55.1, uv 0.13.1, openEMS pin
+
+Full changelog review: [SDK v1.55.1 feature evaluation](research/sdk-v1.55.1-feature-evaluation.md).
+
+| Component | From -> To | Decision |
+| --- | --- | --- |
+| openhands-sdk / openhands-tools | `==1.54.0` -> `==1.55.1` | Adopted; see research doc. |
+| uv | `==0.13.0` -> `==0.13.1` | Adopted. |
+| zizmor | `1.30.1` -> `1.31.1` | Adopted. |
+| trivy | `v0.75.0` -> `v0.76.0` | Adopted. |
+| codeql-action | v4.38.3 -> v4.39.0 | Adopted. |
+| `OPENEMS_COMMIT` | `974294b` -> `8370af8` | Adopted; build unchanged. |
+
 ### 2026-10-07 — solver sid .deb pins (ngspice 47, CalculiX 2.23)
 
 Full changelog review: [Solver sid-.deb adoption (ngspice 47, CalculiX 2.23)](research/solver-sid-deb-adoption.md).

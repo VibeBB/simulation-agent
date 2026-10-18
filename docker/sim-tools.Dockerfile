@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
-ARG UV_VERSION=0.13.0
-ARG UV_DIGEST=sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168
+ARG UV_VERSION=0.13.1
+ARG UV_DIGEST=sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336
 # ngspice and calculix-ccx track Debian unstable (sid) instead of the
 # resolute apt pins so the image ships the newest solver releases; the
 # .debs are fetched from the permanent snapshot.debian.org archive and
@@ -170,7 +170,7 @@ ENTRYPOINT ["python", "-m", "sim"]
 FROM ${BASE_IMAGE} AS openems-build
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG OPENEMS_COMMIT=974294ba7d812ef5a46a4760593057aee7ce6866
+ARG OPENEMS_COMMIT=8370af83c867e322afb44c2aa172fcd08ad4e5da
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
 

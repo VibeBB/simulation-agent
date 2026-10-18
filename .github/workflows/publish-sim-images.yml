@@ -171,7 +171,7 @@ jobs:
               # share the DB with other legs and corrupt db/metadata.json
               # on concurrent writes.
               cache-dir: ${{ runner.temp }}/trivy-tools-json
-              version: v0.75.0
+              version: v0.76.0
               scanners: vuln,secret,misconfig,license
               exit-code: '0'
               format: json
@@ -238,7 +238,7 @@ jobs:
       - name: Upload Trivy SARIF
         # A rehearsal must not file code-scanning alerts.
         if: always() && inputs.dry_run != true && hashFiles('trivy-image.sarif') != ''
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           sarif_file: trivy-image.sarif
           category: trivy-sim-tools
