@@ -61,7 +61,7 @@ def test_docker_dependency_surfaces_match_simulation_image():
     assert digest_status.current.startswith("sha256:")
     assert digest_status.note.startswith("compare the immutable digest")
     statuses = check_docker_args(ROOT, list_remote_tags=lambda _url: ["0.13.0"])
-    assert [(status.name, status.current) for status in statuses] == [("UV_VERSION", "0.13.0")]
+    assert [(status.name, status.current) for status in statuses] == [("UV_VERSION", "0.13.1")]
 
 
 def test_docker_debs_track_debian_sid() -> None:
@@ -236,7 +236,7 @@ def test_workflow_downloads_cover_repo_pins() -> None:
 
     statuses = check_workflow_downloads(ROOT, fetch_json=fetch_json, list_remote_tags=latest_nines)
     rows = {(s.name, s.current) for s in statuses}
-    assert ("zizmor", "1.30.1") in rows
+    assert ("zizmor", "1.31.1") in rows
     assert ("rhysd/actionlint", "v1.7.12") in rows
     assert ("aquasecurity/trivy", "0.75.0") in rows
 
