@@ -221,7 +221,9 @@ next `ubuntu:26.04` base-digest / emsdk-stage bump:
   Go 1.26.7 (CVE-2026-78667/78669/97031); the resolute archive still
   ships that build, unfixable until Ubuntu rebuilds against Go >=1.26.9.
 - emsdk vendored payloads — `@typescript/typescript-linux-x64` (tsgo)
-  built with Go 1.26.4 (10 stdlib/x-text HIGHs) and node/npm's upstream
+  built with Go 1.26.4 (11 stdlib/x-text HIGHs incl. CVE-2026-56851,
+  `golang.org/x/text` v0.38.0 → v0.41.0, surfaced by the refreshed Trivy
+  DB on 2026-10-18) and node/npm's upstream
   bundled deps (brace-expansion, browserslist, fast-uri, flatted,
   ip-address, js-yaml, nanoid, picomatch, postcss, source-map-js, tar,
   undici). The emscripten stage was bumped to 6.0.12 in this change, but
