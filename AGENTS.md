@@ -18,6 +18,9 @@ sources of truth.
   SLP v2 liaison (`liaison/`), and deterministic PNG plots plus vision reviews
   follow the family's shared record protocol.
 - Keep paths inside the workspace; never log or commit secrets.
+- Version expectations and pins in source code must derive from files
+  the dependency-update checker covers (pyproject pins, lockfiles,
+  Dockerfiles, workflow pins); do not hardcode a second copy.
 - Shared hooks are canonical across the family; change all 11 copies together
   and update `EXPECTED` in `scripts/check_shared_hooks.py`. `_records.py`,
   `require_records.py`, and `_provenance.py` are shared where present; UX and
