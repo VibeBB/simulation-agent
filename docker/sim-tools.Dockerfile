@@ -70,6 +70,13 @@ ARG NGSPICE_DEB_SHA256
 ARG CALCULIX_CCX_VERSION
 ARG CALCULIX_CCX_DEB_URL
 ARG CALCULIX_CCX_DEB_SHA256
+# npm bundled with the emsdk stage's node 24.19.0 vendors undici < 6.29.1
+# (CVE-2026-109383, CVE-2026-109869, CVE-2026-87018); patched in place
+# below from a sha256-verified registry tarball (npm 12.2.1 still ships
+# undici 6.29.0).
+ARG UNDICI_VERSION=6.29.1
+# sha256 of https://registry.npmjs.org/undici/-/undici-6.29.1.tgz
+ARG UNDICI_SHA256=29c4b8e0b2d86cb8795571c1959012ce057a14ecfd34858335f47c31e770a04f
 
 # Fail the build when the left side of a verification pipe (curl|sha256sum)
 # breaks instead of silently passing the right side (hadolint DL4006).
@@ -99,6 +106,7 @@ COPY --chmod=0755 docker/apt-sources-fallback /usr/local/bin/
 # Node for the mruby/c WASM leg: the emsdk stage bundles its own node
 # under /opt/emsdk/node/*/bin; link it onto PATH.
 RUN ln -sf /opt/emsdk/node/*/bin/node /usr/local/bin/node \
+    && ln -sf /opt/emsdk/node/*/bin/npm /usr/local/bin/npm \
     && node --version && emcc --version | head -1 && mrbc -h 2>&1 | head -1 || true
 
 # archive.ubuntu.com's port-80 front end has repeated outages (2026-08/09/10);
@@ -110,6 +118,27 @@ RUN apt-sources-fallback \
         python3 \
         python3-venv \
     && rm -rf /var/lib/apt/lists/*
+
+# The pinned emsdk stage vendors vite 8.3.1 inside the emscripten
+# toolchain (CVE-2026-112942, fixed in 8.3.5) and undici < 6.29.1 inside
+# its bundled npm; patch both — vite via npm --prefix (same pattern as
+# dashboard-agent's emsdk patches), undici via a sha256-verified tarball
+# swap — and fail the build if a landed version is still vulnerable.
+RUN npm --prefix /opt/emsdk/upstream/emscripten install --no-save --no-audit --no-fund vite@8.3.5 \
+    && node -p "require('/opt/emsdk/upstream/emscripten/node_modules/vite/package.json').version" | grep -qx '8.3.5' \
+    && for npm_root in /opt/emsdk/node/*/lib/node_modules/npm/node_modules; do \
+        test -d "$npm_root/undici" \
+        && curl --fail --location --silent --show-error \
+            --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
+            --output /tmp/undici.tgz \
+            "https://registry.npmjs.org/undici/-/undici-${UNDICI_VERSION}.tgz" \
+        && echo "${UNDICI_SHA256}  /tmp/undici.tgz" | sha256sum --check \
+        && rm -rf "${npm_root}/undici" \
+        && mkdir -p "${npm_root}/undici" \
+        && tar -xzf /tmp/undici.tgz -C "${npm_root}/undici" --strip-components=1 \
+        && rm -f /tmp/undici.tgz \
+        && grep -F "\"version\": \"${UNDICI_VERSION}\"" "${npm_root}/undici/package.json"; \
+    done
 
 # Solvers (GPL; run as unmodified subprocesses) from the checksum-pinned
 # Debian sid .debs: the sid pins reach ngspice 47 and CalculiX 2.23 while
