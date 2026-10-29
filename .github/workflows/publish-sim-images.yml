@@ -24,6 +24,30 @@ on:
       # merged pin PR does not trigger another publish.
       - "!plugins/sim/tools-image.json"
       - "!docker/README.md"
+  pull_request:
+    # Dry-run rehearsal: build --load + Trivy gates only; every irreversible
+    # step below is normalized to skip on pull_request events.
+    paths:
+      - "docker/**"
+      - ".dockerignore"
+      - "src/**"
+      - "plugins/sim/**"
+      - "examples/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "scripts/smoke_image.py"
+      - "scripts/measure_image_tools.py"
+      - "scripts/print_locked_image.py"
+      - "scripts/pull_locked_image.py"
+      - "scripts/update_image_digest_lock.py"
+      - ".github/workflows/publish-sim-images.yml"
+      - "scripts/publish_image_pin_pr.sh"
+      - "scripts/package_level_sbom.py"
+      - "!docker/image-digests.json"
+      # The plugin pin is written by this workflow itself; exclude it so a
+      # merged pin PR does not trigger another publish.
+      - "!plugins/sim/tools-image.json"
+      - "!docker/README.md"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -87,8 +111,8 @@ jobs:
             IMAGE_REVISION=${{ github.sha }}
           # dry_run keeps the image in the local daemon for the gates
           # below; nothing reaches the registry.
-          push: ${{ inputs.dry_run != true }}
-          load: ${{ inputs.dry_run == true }}
+          push: ${{ (inputs.dry_run != true && github.event_name != 'pull_request') }}
+          load: ${{ (inputs.dry_run == true || github.event_name == 'pull_request') }}
           # Only immutable tags are pushed here: :latest is promoted by the
           # 'Promote :latest' step below after the Trivy gate passes, so a
           # failing image never serves :latest.
@@ -102,7 +126,7 @@ jobs:
       - name: Resolve tools digest
         env:
           BUILT_DIGEST: ${{ steps.tools.outputs.digest }}
-          DRY_RUN: ${{ inputs.dry_run }}
+          DRY_RUN: ${{ (inputs.dry_run == true || github.event_name == 'pull_request') }}
         run: |
           set -euo pipefail
           if [ "$DRY_RUN" = "true" ]; then
@@ -127,7 +151,7 @@ jobs:
       # step overlapping every post-build leg and join it before the
       # digest-lock update that reads its attestation-url output.
       - name: Attest tools image provenance
-        if: inputs.dry_run != true
+        if: (inputs.dry_run != true && github.event_name != 'pull_request')
         id: attest
         background: true
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -204,7 +228,7 @@ jobs:
             uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
             env:
               # dry_run reads the just-built image from the local daemon.
-              SYFT_SOURCE_IMAGE_DEFAULT_PULL_SOURCE: ${{ inputs.dry_run == true && 'docker' || 'registry' }}
+              SYFT_SOURCE_IMAGE_DEFAULT_PULL_SOURCE: ${{ (inputs.dry_run == true || github.event_name == 'pull_request') && 'docker' || 'registry' }}
               TMPDIR: ${{ runner.temp }}
               SYFT_FILE_METADATA_SELECTION: none
             with:
@@ -238,7 +262,7 @@ jobs:
         # leaves the previous good :latest untouched. imagetools copies the
         # manifest server-side — no re-push; attestations and the SBOM keep
         # referencing the same digest.
-        if: inputs.dry_run != true
+        if: (inputs.dry_run != true && github.event_name != 'pull_request')
         env:
           TOOLS_DIGEST: ${{ steps.tools.outputs.digest }}
         run: |
@@ -261,7 +285,7 @@ jobs:
             --output trivy-image.sarif "$RUNNER_TEMP/trivy-sarif-source.json"
       - name: Upload Trivy SARIF
         # A rehearsal must not file code-scanning alerts.
-        if: always() && inputs.dry_run != true && hashFiles('trivy-image.sarif') != ''
+        if: always() && (inputs.dry_run != true && github.event_name != 'pull_request') && hashFiles('trivy-image.sarif') != ''
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           sarif_file: trivy-image.sarif
@@ -303,7 +327,7 @@ jobs:
               raise SystemExit("tools SBOM must use SPDX-2.3")
           PY
       - name: Attest tools SBOM
-        if: inputs.dry_run != true
+        if: (inputs.dry_run != true && github.event_name != 'pull_request')
         id: attest_sbom
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
@@ -321,7 +345,7 @@ jobs:
       - name: Verify published tools smoke
         env:
           TOOLS_REF: ${{ env.TOOLS_REF }}
-          DRY_RUN: ${{ inputs.dry_run }}
+          DRY_RUN: ${{ (inputs.dry_run == true || github.event_name == 'pull_request') }}
         run: |
           set -euo pipefail
           # dry_run already holds the image in the local daemon.
@@ -343,7 +367,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Update digest lock and merge PR
         # dry_run stops at the summary: no lock PR, no post-merge dispatches.
-        if: inputs.dry_run != true
+        if: (inputs.dry_run != true && github.event_name != 'pull_request')
         env:
           GH_TOKEN: ${{ github.token }}
           ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
@@ -421,7 +445,7 @@ jobs:
           # built, scanned, and smoked.
           bash scripts/publish_image_pin_pr.sh "$pr_url" "$branch" "$base_sha" "ci.yml locked-image-check.yml"
       - name: Note dry-run skips
-        if: inputs.dry_run
+        if: (inputs.dry_run == true || github.event_name == 'pull_request')
         run: |
           {
             echo "### dry-run rehearsal"
