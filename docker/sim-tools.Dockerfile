@@ -1,6 +1,6 @@
-ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78
-ARG UV_VERSION=0.13.1
-ARG UV_DIGEST=sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336
+ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
+ARG UV_VERSION=0.13.6
+ARG UV_DIGEST=sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0
 # ngspice and calculix-ccx track Debian unstable (sid) instead of the
 # resolute apt pins so the image ships the newest solver releases; the
 # .debs are fetched from the permanent snapshot.debian.org archive and
@@ -16,7 +16,7 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION}@${UV_DIGEST} AS uv
 
 # Emscripten SDK stage: the mruby/c WASM leg runs UX .rb sources through
 # the mruby/c VM under Node — the same toolchain dashboard-agent uses.
-FROM emscripten/emsdk:6.0.12@sha256:77638e6c215a65f25a704c0c831d5c2463a8c0468a58c6cb82489dbe621dfa05 AS emscripten
+FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a AS emscripten
 
 # mruby/mrubyc build stage: mrbc compiles UX .rb sources into bytecode
 # linked into the mruby/c WASM VM. Same pins as firmware-agent
@@ -175,7 +175,7 @@ ENTRYPOINT ["python", "-m", "sim"]
 FROM ${BASE_IMAGE} AS openems-build
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG OPENEMS_COMMIT=8370af83c867e322afb44c2aa172fcd08ad4e5da
+ARG OPENEMS_COMMIT=38da98d592f6f9b772cf984a411470e0feb9a114
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
 
@@ -234,7 +234,7 @@ RUN CSXCAD_INSTALL_PATH=/usr/local \
 FROM sim-tools AS sim-tools-em
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG KICAD_RFSIM_COMMIT=efa0ea9bd34b13f7819c6f2d4c02e78d34b116c3
+ARG KICAD_RFSIM_COMMIT=5143601169b81980f046620fad4b1c74815c586a
 
 USER root
 

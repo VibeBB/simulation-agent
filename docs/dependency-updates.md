@@ -31,6 +31,22 @@ update candidates.
 
 ## Update history
 
+
+### 2026-10-29 — sdk 1.59.0, uv 0.13.6, openEMS/kicad-rfsim pins
+
+Full changelog review: [SDK v1.59.0 feature evaluation](research/sdk-v1.59.0-feature-evaluation.md).
+
+| Component | From -> To | Decision |
+| --- | --- | --- |
+| openhands-sdk / openhands-tools | `==1.55.1` -> `==1.59.0` | Adopted; see research doc. |
+| uv | `==0.13.1` -> `==0.13.6` | Adopted. |
+| pytest / ruff | `9.1.1` -> `9.2.0`, `0.17.0` -> `0.17.3` (lock) | Adopted. |
+| trivy | `v0.76.0` -> `v0.76.1` | Adopted. |
+| codeql-action / harden-runner / setup-uv / login-action | v4.39.0->v4.39.1, v2.22.1->v2.22.3, v10.3.0->v10.3.3, v4.6.0->v4.7.0 | Adopted. |
+| `OPENEMS_COMMIT` | `8370af8` -> `38da98d` | Adopted; build unchanged. |
+| `KICAD_RFSIM_COMMIT` | `efa0ea9` -> `5143601` | Adopted; build unchanged. |
+| emsdk base image | `6.0.12` -> `6.0.13` (digest re-pinned) | Adopted. |
+| `ubuntu:26.04` base | digest re-pinned | Adopted. |
 ### 2026-10-18 — sdk 1.55.1, uv 0.13.1, openEMS pin
 
 Full changelog review: [SDK v1.55.1 feature evaluation](research/sdk-v1.55.1-feature-evaluation.md).

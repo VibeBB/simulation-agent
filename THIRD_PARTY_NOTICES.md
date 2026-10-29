@@ -9,18 +9,18 @@ solvers).
 | Component | Version pin | License | Use |
 |---|---|---|---|
 | Ubuntu 26.04 (Resolute) | `ubuntu:26.04@sha256:da6fc2be…` | various | Base image |
-| uv | `ghcr.io/astral-sh/uv:0.12.23` | Apache-2.0 / MIT | Python and package manager |
+| uv | `ghcr.io/astral-sh/uv:0.13.6` | Apache-2.0 / MIT | Python and package manager |
 | CPython | 3.12.x via uv / system | PSF-2.0 | Runtime |
 | ngspice | Debian sid `ngspice_47+ds-1_amd64.deb`, sha256 `fe4e9efa5990cb233addd67cea8f7c919791302bd499613c5ecdb08c67a94a32` | BSD-3-Clause | SPICE analysis (`.meas` batch runs) |
 | mruby | 4.0.0 tarball, sha256-verified at build (`MRUBY_VERSION`/`MRUBY_SHA256`; provides `mrbc`) | MIT | mruby/c bytecode compiler |
 | mruby/c | master `2dec4802b09be1fc12f388d3c9267ffd9dc6c404` tarball, sha256-verified at build (`MRUBYC_REF`/`MRUBYC_SHA256`; release4.0.0 predates the emscripten HAL) | BSD-3-Clause | mruby/c WASM VM runtime |
-| Emscripten SDK | `emscripten/emsdk:6.0.10` image, digest-pinned | MIT / UIUC | WASM build of the mruby/c VM |
+| Emscripten SDK | `emscripten/emsdk:6.0.13` image, digest-pinned | MIT / UIUC | WASM build of the mruby/c VM |
 | CalculiX (`calculix-ccx`) | Debian sid `calculix-ccx_2.23-1_amd64.deb`, sha256 `709b2d994699168f2754bd16117d51cef3241e268a7dfab185b8f78c98bd02aa` | GPL-2.0 | FEM solver subprocess |
 | openEMS + CSXCAD | commit `81f32e03d514f270e679b63e8861d24eaa03a7e2` | GPL-3.0 | Optional FDTD EM field solver |
 | KiCad-rfsim | commit `efa0ea9bd34b13f7819c6f2d4c02e78d34b116c3` | GPL-3.0 | Optional RF/microstrip modelling |
 | pydantic | `>=2` via `uv.lock` | MIT | Contract models |
 | mcp | `>=1.29,<2` via `uv.lock` | MIT | MCP server |
-| openhands-sdk / openhands-tools | `1.53.0` (sdk-check group) | MIT | Plugin-load verification |
+| openhands-sdk / openhands-tools | `1.59.0` (sdk-check group) | MIT | Plugin-load verification |
 | coverage | `7.16.2` (dev group) | Apache-2.0 | Test coverage measurement |
 | pytest-cov | `7.1.0` (dev group) | MIT | Pytest coverage integration |
 
