@@ -8,7 +8,8 @@ sources of truth.
 ## Invariants
 
 - Python 3.12+, package `src/sim/`, uv `0.13.0`, hatchling, Pydantic v2, and
-  MCP. Runtime dependencies are limited to `pydantic>=2` and `mcp>=1.29,<2`.
+  MCP. Runtime dependencies are limited to `pydantic>=2`, `mcp>=2` and
+  `jsonschema>=4`.
 - All contracts are frozen and reject extra fields. Missing facts, tools,
   outputs, parse results, or acceptance bounds remain `unknown`.
 - Only deterministic Python gates emit `pass`, `fail`, or `unknown`. Agent

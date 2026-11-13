@@ -16,7 +16,7 @@ from sim.mcp_server import dispatch_tool, tool_specs
 def _call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
     call = cast(
         Coroutine[Any, Any, types.CallToolResult],
-        mcp_server.call_tool(name, arguments),
+        mcp_server.call_tool(None, types.CallToolRequestParams(name=name, arguments=arguments)),
     )
     return asyncio.run(call)
 
@@ -131,14 +131,14 @@ def test_mcp_writing_tools_are_not_annotated_read_only() -> None:
 
     assert pdn_annotations is not None
     assert doctor_annotations is not None
-    assert pdn_annotations.readOnlyHint is False
-    assert doctor_annotations.readOnlyHint is True
+    assert pdn_annotations.read_only_hint is False
+    assert doctor_annotations.read_only_hint is True
 
 
 def test_mcp_unknown_tool_is_transport_error() -> None:
     result = _call_tool("sim_unknown", {})
 
-    assert result.isError is True
+    assert result.is_error is True
     content = result.content[0]
     assert isinstance(content, types.TextContent)
     assert content.text == json.dumps(
@@ -155,7 +155,7 @@ def test_mcp_dispatch_exception_is_transport_error(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(mcp_server, "dispatch_tool", fail_dispatch)
     result = _call_tool("sim_schema", {})
 
-    assert result.isError is True
+    assert result.is_error is True
     assert _mcp_payload(result) == {"verdict": "fail", "detail": "dispatch failed"}
 
 
@@ -167,7 +167,34 @@ def test_mcp_gate_verdicts_are_not_transport_errors(
         return {"verdict": verdict, "checks": []}
 
     monkeypatch.setattr(mcp_server, "dispatch_tool", gate_result)
-    result = _call_tool("sim_gates", {})
+    result = _call_tool("sim_gates", {"brief": "b.sim.json"})
 
-    assert result.isError is False
+    assert result.is_error is False
     assert _mcp_payload(result)["verdict"] == verdict
+
+
+def test_mcp_stdio_wire_roundtrip(tmp_path: Path) -> None:
+    import sys
+
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    async def roundtrip() -> types.CallToolResult:
+        params = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "sim.mcp_server"],
+            env={"OPENHANDS_PROJECT_DIR": str(tmp_path)},
+        )
+        async with (
+            stdio_client(params) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+            tools = await session.list_tools()
+            assert "sim_schema" in {tool.name for tool in tools.tools}
+            return await session.call_tool("sim_schema", {})
+
+    result = asyncio.run(roundtrip())
+    assert result.is_error is False
+    payload = _mcp_payload(result)
+    assert payload
