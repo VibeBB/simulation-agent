@@ -9,12 +9,12 @@ import json
 from pathlib import Path
 from typing import cast
 
+from jsonschema import Draft202012Validator
 from mcp import types
 from mcp.server import Server, ServerRequestContext
 from mcp.server.lowlevel import NotificationOptions
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
-from jsonschema import Draft202012Validator
 
 from . import __version__
 from .brief import load_brief, schema

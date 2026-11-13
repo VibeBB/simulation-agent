@@ -385,10 +385,9 @@ def _request_state(
         if problem is not None:
             problems.append(problem)
             stale = True
-        elif answered and response is not None:
-            if response.input_hashes.get(entry.path) != current:
-                problems.append(f"input {entry.path} changed since the response")
-                stale = True
+        elif answered and response is not None and response.input_hashes.get(entry.path) != current:
+            problems.append(f"input {entry.path} changed since the response")
+            stale = True
     if stale:
         return "stale", problems, response.status if response else None
     if answered:
