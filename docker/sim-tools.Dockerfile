@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
-ARG UV_VERSION=0.13.6
-ARG UV_DIGEST=sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0
+ARG UV_VERSION=0.13.8
+ARG UV_DIGEST=sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85
 # ngspice and calculix-ccx track Debian unstable (sid) instead of the
 # resolute apt pins so the image ships the newest solver releases; the
 # .debs are fetched from the permanent snapshot.debian.org archive and
@@ -72,8 +72,9 @@ ARG CALCULIX_CCX_DEB_URL
 ARG CALCULIX_CCX_DEB_SHA256
 # npm bundled with the emsdk stage's node 24.19.0 vendors undici < 6.29.1
 # (CVE-2026-109383, CVE-2026-109869, CVE-2026-87018); patched in place
-# below from a sha256-verified registry tarball (npm 12.2.1 still ships
-# undici 6.29.0).
+# below from a sha256-verified registry tarball (latest npm 12.2.2 now
+# vendors the fix, but the pinned emsdk stage still bundles the old npm,
+# so the swap stays until the stage rebases).
 ARG UNDICI_VERSION=6.29.1
 # sha256 of https://registry.npmjs.org/undici/-/undici-6.29.1.tgz
 ARG UNDICI_SHA256=29c4b8e0b2d86cb8795571c1959012ce057a14ecfd34858335f47c31e770a04f
@@ -93,7 +94,7 @@ ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
 LABEL org.opencontainers.image.source="https://github.com/VibeBB/simulation-agent" \
       org.opencontainers.image.licenses="BSD-3-Clause" \
       org.opencontainers.image.revision="${IMAGE_REVISION}" \
-      sim.uv.version="0.13.0" \
+      sim.uv.version="${UV_VERSION}" \
       sim.ngspice.version="${NGSPICE_VERSION}" \
       sim.calculix-ccx.version="${CALCULIX_CCX_VERSION}"
 
@@ -204,7 +205,7 @@ ENTRYPOINT ["python", "-m", "sim"]
 FROM ${BASE_IMAGE} AS openems-build
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG OPENEMS_COMMIT=38da98d592f6f9b772cf984a411470e0feb9a114
+ARG OPENEMS_COMMIT=e4cd01508b0ba40a4fbc2b4278e3ef3c43184095
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND}
 

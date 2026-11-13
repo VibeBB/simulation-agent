@@ -12,30 +12,30 @@ mcp_config:
     command: sh
     args:
       - -c
-      - 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/scripts/sim_launcher.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "sim plugin root unresolved" >&2; exit 2; }; exec python3 "$p/scripts/sim_launcher.py" mcp_server'
+      - 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/scripts/sim_launcher.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "sim plugin root unresolved" >&2; exit 2; }; exec python3 "$p/scripts/sim_launcher.py" mcp_server'
 hooks:
   pre_tool_use:
     - matcher: file_editor|apply_patch|terminal
       hooks:
         - type: command
           name: protect-generated
-          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/protect_generated.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "sim plugin root unresolved" >&2; exit 2; }; exec python3 "$p/hooks/scripts/protect_generated.py"'
+          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/protect_generated.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "sim plugin root unresolved" >&2; exit 2; }; exec python3 "$p/hooks/scripts/protect_generated.py"'
     - matcher: file_editor|apply_patch|terminal|grep|glob
       hooks:
         - type: command
           name: blind-guard
-          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/blind_guard.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "sim plugin root unresolved" >&2; exit 2; }; exec python3 "$p/hooks/scripts/blind_guard.py"'
+          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/blind_guard.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "sim plugin root unresolved" >&2; exit 2; }; exec python3 "$p/hooks/scripts/blind_guard.py"'
   post_tool_use:
     - matcher: inspect_image_with_vision
       hooks:
         - type: command
           name: record-vision-tool-event
-          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_vision_tool_event.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_vision_tool_event.py"'
+          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_vision_tool_event.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_vision_tool_event.py"'
     - matcher: file_editor|sim_plots
       hooks:
         - type: command
           name: record-image-observation
-          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_image_observation.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_image_observation.py"'
+          command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_image_observation.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_image_observation.py"'
 max_iteration_per_run: 20
 max_budget_per_run: 1.5
 when_to_use_examples:

@@ -10,10 +10,11 @@ from pathlib import Path
 from typing import cast
 
 from mcp import types
-from mcp.server import Server
+from mcp.server import Server, ServerRequestContext
 from mcp.server.lowlevel import NotificationOptions
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
+from jsonschema import Draft202012Validator
 
 from . import __version__
 from .brief import load_brief, schema
@@ -39,7 +40,6 @@ from .responses import write_response
 from .run import run_simulation
 from .workspace import workspace_path, workspace_root
 
-server = Server(f"sim-mcp/{__version__}")
 ANALYSES = ("spice", "pdn", "thermal", "wca", "emc", "dft", "fem", "rf", "ruggedness", "lifetime")
 WRITING_TOOLS = {
     "sim_run",
@@ -282,22 +282,23 @@ def tool_specs() -> list[types.Tool]:
         types.Tool(
             name=name,
             description=DESCRIPTIONS.get(name, name),
-            inputSchema=value,
+            input_schema=value,
             annotations=types.ToolAnnotations(
                 title=name,
-                readOnlyHint=name not in WRITING_TOOLS,
-                destructiveHint=False,
-                idempotentHint=name not in WRITING_TOOLS,
-                openWorldHint=False,
+                read_only_hint=name not in WRITING_TOOLS,
+                destructive_hint=False,
+                idempotent_hint=name not in WRITING_TOOLS,
+                open_world_hint=False,
             ),
         )
         for name, value in schemas.items()
     ]
 
 
-@server.list_tools()
-async def list_tools() -> list[types.Tool]:
-    return tool_specs()
+async def list_tools(
+    ctx: ServerRequestContext | None, params: types.PaginatedRequestParams | None
+) -> types.ListToolsResult:
+    return types.ListToolsResult(tools=tool_specs())
 
 
 def _string_argument(arguments: dict[str, object], name: str) -> str:
@@ -503,14 +504,32 @@ def _payload_images(
                 types.ImageContent(
                     type="image",
                     data=base64.b64encode(blob).decode("ascii"),
-                    mimeType="image/png",
+                    mime_type="image/png",
                 )
             )
     return images, mismatches, max(0, loaded - MAX_PLOT_IMAGES)
 
 
-@server.call_tool()
-async def call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
+async def call_tool(
+    ctx: ServerRequestContext | None, params: types.CallToolRequestParams
+) -> types.CallToolResult:
+    name, arguments = params.name, params.arguments or {}
+    spec = next((tool for tool in tool_specs() if tool.name == name), None)
+    if spec is not None:
+        errors = sorted(
+            Draft202012Validator(spec.input_schema).iter_errors(  # pyright: ignore[reportUnknownMemberType]
+                arguments
+            ),
+            key=lambda error: list(error.absolute_path),
+        )
+        if errors:
+            first = errors[0]
+            key = ".".join(str(part) for part in first.absolute_path)
+            message = first.message if not key else f"'{key}': {first.message}"
+            return types.CallToolResult(
+                content=[types.TextContent(type="text", text=f"Input validation error: {message}")],
+                is_error=True,
+            )
     is_error = False
     payload: dict[str, object]
     try:
@@ -533,7 +552,7 @@ async def call_tool(name: str, arguments: dict[str, object]) -> types.CallToolRe
             ),
             *images,
         ],
-        isError=is_error,
+        is_error=is_error,
     )
 
 
@@ -556,6 +575,8 @@ async def _serve() -> None:
 def main() -> None:
     asyncio.run(_serve())
 
+
+server = Server(f"sim-mcp/{__version__}", on_list_tools=list_tools, on_call_tool=call_tool)
 
 if __name__ == "__main__":
     main()

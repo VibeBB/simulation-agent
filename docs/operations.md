@@ -88,12 +88,14 @@ from Ubuntu repositories during image builds; the base digest is pinned but
 APT resolution is not a byte-for-byte lock.
 
 `sim-tools-em` adds openEMS/CSXCAD and KiCad-rfsim. The current build pin is
-openEMS-Project v0.37.0-rc1, commit
-`92b82520054a62201ac69bd905fdf2533810367f`. This release candidate is used
-instead of stable v0.0.36 because the pinned KiCad-rfsim runner contains
-version-gated model features requiring the newer `LEtype` behavior. The
-KiCad-rfsim source is pinned to `efa0ea9bd34b13f7819c6f2d4c02e78d34b116c3`
-(tree `3c6f546a77f0f2744f809e9ff090a6ec7a2e7e2e`). Do not update these
+openEMS-Project commit `e4cd01508b0ba40a4fbc2b4278e3ef3c43184095`
+(master, 2026-11-13 — "update submodule: openEMS — Python's Write2XML()
+writes the TimeStepFactor again"), moved off the v0.37.0-rc1 commit
+`92b82520054a62201ac69bd905fdf2533810367f` after reviewing the
+intermediate commits for regressions. The `LEtype` behavior the KiCad-rfsim
+runner requires is still present on master. The KiCad-rfsim source is pinned
+to `5143601169b81980f046620fad4b1c74815c586a`
+(tree `dd62de9554eaf3e6fabde9833487b41e0d195164`). Do not update these
 references without reviewing the runner's feature requirements and recording
 the decision here.
 
@@ -399,3 +401,27 @@ When sweeping dependencies to latest releases:
 - 2026-10-29: Added `scripts/lint_workflows_local.sh`, which runs
   the same pinned actionlint + zizmor checks as workflow-lint.yml locally
   before pushing workflow edits.
+
+### 2026-11-14 dependency sweep
+
+This sweep adopted openhands-sdk/openhands-tools 1.62.0 — the SDK's
+fastmcp 4 migration pins `mcp>=2`, so `src/sim/mcp_server.py` moved to
+the mcp 2.x lowlevel API (`on_list_tools`/`on_call_tool` constructor
+arguments, snake_case fields) and gained a `jsonschema`
+`Draft202012Validator` shim to restore the request-layer input validation
+mcp 2.x dropped (details and the feature-by-feature review are in
+`docs/research/sdk-v1.62.0-feature-evaluation.md`). Tooling pins moved:
+uv 0.13.8, ruff 0.17.5, zizmor 1.32.0, trivy 0.76.2 and the shared
+workflow pins (harden-runner v2.22.4, docker/login-action v4.8.0,
+codeql-action v4.39.3). `OPENEMS_COMMIT` moved off v0.37.0-rc1
+(`92b8252`) to master `e4cd01508b0ba40a4fbc2b4278e3ef3c43184095`, which
+restores `Write2XML()`'s `TimeStepFactor` output used by the EM leg;
+the intermediate commits were reviewed and the `LEtype` behavior the
+KiCad-rfsim runner requires is unchanged. The `UNDICI_VERSION` swap
+stays: the checker's bundled-undici surface tracks the latest npm
+(12.2.2, which vendors the fix), while the swap patches the pinned emsdk
+stage's bundled npm that still vendors undici < 6.29.1 — recorded as a
+deferral until the emsdk stage rebases. Plugin root candidate order was
+corrected so `SIM_PLUGIN_ROOT` wins over the generic `PLUGIN_ROOT`, and
+the `server` assignment in `mcp_server.py` was moved ahead of the
+`__main__` guard so `python -m sim.mcp_server` resolves it.

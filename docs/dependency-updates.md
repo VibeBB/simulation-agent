@@ -32,6 +32,24 @@ update candidates.
 ## Update history
 
 
+### 2026-11-14 — sdk 1.62.0, mcp 2.x, openEMS master pin
+
+Full changelog review: [SDK v1.62.0 feature evaluation](research/sdk-v1.62.0-feature-evaluation.md).
+
+| Component | From -> To | Decision |
+| --- | --- | --- |
+| `openhands-sdk` / `openhands-tools` (sdk-check group) | 1.59.0 -> 1.62.0 | Adopted. Upstream range v1.59.0..v1.62.0 reviewed release by release; `mcp>=2` is forced via `fastmcp-slim[client]`. |
+| `mcp` | >=1.29,<2 -> >=2 | Adopted. `mcp_server.py` migrated to the mcp 2.x lowlevel API; jsonschema shim restores dropped request-layer validation. The old mcp<2 deferral is consumed. |
+| `jsonschema` | new | Adopted. Restores MCP tool input validation under mcp 2.x; PyPI direct deps are auto-covered by the checker. |
+| `OPENEMS_COMMIT` | 92b8252 -> e4cd015 | Adopted. Master restores `Write2XML()`'s `TimeStepFactor`; `LEtype` behavior for KiCad-rfsim unchanged. |
+| uv | 0.13.6 -> 0.13.8 | Adopted. `ARG UV_VERSION`, OCI label, `required-version` and setup-uv refs updated. |
+| ruff | 0.17.3 -> 0.17.5 | Adopted. |
+| zizmor wheel | 1.31.1 -> 1.32.0 | Adopted. sha256-verified wheel pin updated. |
+| trivy | 0.76.1 -> 0.76.2 | Adopted. Warm pin + `version:` inputs updated. |
+| Actions pins | various | harden-runner v2.22.4, docker/login-action v4.8.0, codeql-action v4.39.3 — shared EXPECTED refreshed. |
+| `npm-bundled-undici` swap | deferred | Checker flags the swap removable (latest npm vendors the fix), but it patches the emsdk stage's bundled npm; stays until the emsdk stage rebases. |
+| Python 3.15 | deferred | fastuuid 0.14.0 still lacks cp315 wheels; deferral carried forward. |
+
 ### 2026-10-29 — sdk 1.59.0, uv 0.13.6, openEMS/kicad-rfsim pins
 
 Full changelog review: [SDK v1.59.0 feature evaluation](research/sdk-v1.59.0-feature-evaluation.md).
