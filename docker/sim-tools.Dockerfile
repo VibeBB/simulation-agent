@@ -64,6 +64,7 @@ FROM ${BASE_IMAGE} AS sim-tools
 ARG DEBIAN_FRONTEND=noninteractive
 ARG IMAGE_REVISION=unknown
 # Re-declare the global solver pins so the install layer can use them.
+ARG UV_VERSION
 ARG NGSPICE_VERSION
 ARG NGSPICE_DEB_URL
 ARG NGSPICE_DEB_SHA256

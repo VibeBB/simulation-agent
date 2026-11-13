@@ -171,3 +171,30 @@ def test_mcp_gate_verdicts_are_not_transport_errors(
 
     assert result.is_error is False
     assert _mcp_payload(result)["verdict"] == verdict
+
+
+def test_mcp_stdio_wire_roundtrip(tmp_path: Path) -> None:
+    import sys
+
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    async def roundtrip() -> types.CallToolResult:
+        params = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "sim.mcp_server"],
+            env={"OPENHANDS_PROJECT_DIR": str(tmp_path)},
+        )
+        async with (
+            stdio_client(params) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            await session.initialize()
+            tools = await session.list_tools()
+            assert "sim_schema" in {tool.name for tool in tools.tools}
+            return await session.call_tool("sim_schema", {})
+
+    result = asyncio.run(roundtrip())
+    assert result.is_error is False
+    payload = _mcp_payload(result)
+    assert payload
