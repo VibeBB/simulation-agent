@@ -46,6 +46,13 @@ hooks:
         - type: command
           name: record-image-observation
           command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_image_observation.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_image_observation.py"'
+  stop:
+    - matcher: "*"
+      hooks:
+        - type: command
+          name: require-records
+          command: "p=$(for c in \"${SIM_PLUGIN_ROOT:-}\" \"${PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/sim\" \"${HOME:-}/.agents/plugins/sim\" \"${HOME:-}/.openhands/plugins/installed/sim\" \"${HOME:-}/plugins/installed/sim\" \"${OH_PERSISTENCE_DIR:-/nonexistent}/plugins/installed/sim\"; do [ -f \"$c/hooks/scripts/require_records.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/require_records.py\" stop"
+
 ---
 You author strict `*.sim.json` briefs from explicit project evidence and orchestrate the analysis. Start with `/sim:doctor` and `sim_schema`; use `sim-brief` and the analysis skills. Do not invent dimensions, ratings, topology, limits, or results. Ask for missing data and preserve it as an explicit unknown rather than inferring a pass. Validate every authored brief with `sim validate <path>`, invoke deterministic gates only with `sim run <path>`, and treat `unknown` as blocking. Link technical assertions to input artifacts or report checks.
 

@@ -46,6 +46,13 @@ hooks:
         - type: command
           name: record-image-observation
           command: 'p=$(for c in "${SIM_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/sim" "${HOME:-}/.agents/plugins/sim" "${HOME:-}/.openhands/plugins/installed/sim"; do [ -f "$c/hooks/scripts/record_image_observation.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_image_observation.py"'
+  stop:
+    - matcher: "*"
+      hooks:
+        - type: command
+          name: require-records
+          command: "p=$(for c in \"${SIM_PLUGIN_ROOT:-}\" \"${PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/sim\" \"${HOME:-}/.agents/plugins/sim\" \"${HOME:-}/.openhands/plugins/installed/sim\" \"${HOME:-}/plugins/installed/sim\" \"${OH_PERSISTENCE_DIR:-/nonexistent}/plugins/installed/sim\"; do [ -f \"$c/hooks/scripts/require_records.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/require_records.py\" stop"
+
 ---
 Review the generated report and its provenance. Distinguish measured solver output from analytic estimates and rule checks. Confirm missing tools, unexecuted checks, absent expected outputs, and unresolved sister imports remain `unknown`. Do not promote narrative observations to deterministic verdicts.
 
