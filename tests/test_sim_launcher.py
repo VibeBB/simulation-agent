@@ -140,3 +140,15 @@ def test_default_docker_runs_image_when_available(monkeypatch: pytest.MonkeyPatc
     assert argv[:2] == ["/usr/bin/docker", "run"]
     assert "sim-tools:test" in argv
     assert argv[-3:] == ["-m", "sim", "doctor"]
+
+
+def test_docker_forwards_native_record_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENHANDS_SESSION_ID", "native-reviewer")
+
+    def user_spec(_docker: str) -> str:
+        return "1000:1000"
+
+    monkeypatch.setattr(launcher, "_container_user", user_spec)
+    argv = launcher._docker_argv("docker", "sim-tools:test", None, ["-m", "sim", "doctor"])
+    assert "OPENHANDS_SESSION_ID=native-reviewer" in argv
+    assert argv[argv.index("OPENHANDS_SESSION_ID=native-reviewer") - 1] == "-e"

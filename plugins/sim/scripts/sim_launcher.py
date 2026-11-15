@@ -30,6 +30,7 @@ _REPOSITORY = "VibeBB/simulation-agent"
 _PUBLISH_FILE = ".github/workflows/publish-sim-images.yml"
 PASSTHROUGH_ENV = {
     "OPENHANDS_PROJECT_DIR",
+    "OPENHANDS_SESSION_ID",
     "SIM_NGSPICE",
     "SIM_CCX",
     "SIM_OPENEMS_PYTHON",
