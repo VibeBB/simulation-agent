@@ -1,7 +1,7 @@
 ---
 name: sim-spice
 description: SPICE and tolerance-analysis workflow, measurements, and solver failure handling.
-version: 0.1.0
+version: 1.0.0
 license: BSD-3-Clause
 triggers:
   - ngspice

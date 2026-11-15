@@ -1,7 +1,7 @@
 ---
 name: sim-dft
 description: Test-point coverage, pad and pitch, debug header, and boundary-scan gates.
-version: 0.1.0
+version: 1.0.0
 license: BSD-3-Clause
 triggers:
   - design for test
