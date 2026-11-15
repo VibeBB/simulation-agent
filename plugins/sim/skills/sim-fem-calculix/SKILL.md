@@ -1,7 +1,7 @@
 ---
 name: sim-fem-calculix
 description: Cantilever finite-element modeling, CalculiX adapter boundaries, and analytic cross-checks.
-version: 0.1.0
+version: 1.0.0
 license: BSD-3-Clause
 triggers:
   - CalculiX

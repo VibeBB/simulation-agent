@@ -1,6 +1,6 @@
 [project]
 name = "simulation-agent"
-version = "0.1.0"
+version = "1.0.0"
 description = "OpenHands plugin for deterministic engineering simulation analysis"
 license = "BSD-3-Clause"
 requires-python = ">=3.12"

@@ -1,7 +1,7 @@
 ---
 name: sim-brief
 description: Simulation brief schema, required evidence, and fail-closed input rules.
-version: 0.1.0
+version: 1.0.0
 license: BSD-3-Clause
 triggers:
   - simulation brief

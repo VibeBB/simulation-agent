@@ -1,7 +1,7 @@
 ---
 name: sim-pdn-thermal
 description: Power-integrity and thermal network modeling, assumptions, and gate boundaries.
-version: 0.1.0
+version: 1.0.0
 license: BSD-3-Clause
 triggers:
   - power integrity
