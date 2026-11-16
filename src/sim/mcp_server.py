@@ -6,6 +6,7 @@ import asyncio
 import base64
 import hashlib
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
@@ -16,7 +17,7 @@ from mcp.server.lowlevel import NotificationOptions
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 
-from . import __version__
+from . import __version__, _vrp
 from .brief import load_brief, schema
 from .doctor import run_doctor
 from .imports import write_import_record
@@ -505,6 +506,7 @@ def _payload_images(
                     type="image",
                     data=base64.b64encode(blob).decode("ascii"),
                     mime_type="image/png",
+                    _meta=_vrp.rendered_image_metadata(path, blob, "sim"),
                 )
             )
     return images, mismatches, max(0, loaded - MAX_PLOT_IMAGES)
@@ -527,7 +529,9 @@ async def call_tool(
             key = ".".join(str(part) for part in first.absolute_path)
             message = first.message if not key else f"'{key}': {first.message}"
             return types.CallToolResult(
-                content=[types.TextContent(type="text", text=f"Input validation error: {message}")],
+                content=_with_image_metadata(
+                    [types.TextContent(type="text", text=f"Input validation error: {message}")]
+                ),
                 is_error=True,
             )
     is_error = False
@@ -545,13 +549,15 @@ async def call_tool(
         if omitted:
             payload["plots_omitted"] = omitted
     return types.CallToolResult(
-        content=[
-            types.TextContent(
-                type="text",
-                text=json.dumps(payload, indent=2, sort_keys=True),
-            ),
-            *images,
-        ],
+        content=_with_image_metadata(
+            [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(payload, indent=2, sort_keys=True),
+                ),
+                *images,
+            ]
+        ),
         is_error=is_error,
     )
 
@@ -577,6 +583,34 @@ def main() -> None:
 
 
 server = Server(f"sim-mcp/{__version__}", on_list_tools=list_tools, on_call_tool=call_tool)
+
+
+def _with_image_metadata(content: Sequence[types.ContentBlock]) -> list[types.ContentBlock]:
+    """Keep producer identity in text because SDK image conversion can omit metadata."""
+    inline_images: list[dict[str, object]] = []
+    for block in content:
+        if not isinstance(block, types.ImageContent):
+            continue
+        identity: object = (block.meta or {}).get("vibebb_image_identity")
+        if not isinstance(identity, dict):
+            continue
+        claim = cast(dict[str, object], identity)
+        inline_images.append(
+            {
+                "path": claim.get("path"),
+                "sha256": claim.get("sha256"),
+                "attached": True,
+                "identity_status": "bound",
+                "image_identity": claim,
+            }
+        )
+    if not inline_images:
+        return list(content)
+    return [
+        *content,
+        types.TextContent(type="text", text=json.dumps({"inline_images": inline_images})),
+    ]
+
 
 if __name__ == "__main__":
     main()
