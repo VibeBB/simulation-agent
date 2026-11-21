@@ -69,4 +69,3 @@ Primary sources:
 | openEMS | e4cd0150 -> f1d021db | adopted | HEAD of the vendored checkout; smoke gates cover it. |
 | npm-bundled-undici deferral | `latest` refreshed to `6.29.1 (npm 12.2.3)` | deferred (kept) | Same reasoning as firmware-agent. |
 | emsdk | stays 6.0.13 (latest 7.0.0) | deferred | Major base bump pending a Trivy re-scan of the new base. |
-
