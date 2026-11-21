@@ -32,7 +32,7 @@ jobs:
     outputs:
       sim-tools: ${{ steps.scope.outputs.sim-tools }}
     steps:
-      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -71,7 +71,7 @@ jobs:
     # No actions/cache usage: forbid restore and save entirely.
     cache-mode: none
     steps:
-      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -102,7 +102,7 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
-      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -111,7 +111,7 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 2
           persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         id: setup-uv
         with:
           python-version: ${{ matrix.python-version }}
@@ -141,7 +141,7 @@ jobs:
       # time.
       PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
     steps:
-      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -150,7 +150,7 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 2
           persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         id: setup-uv
         continue-on-error: true
         with:
@@ -178,7 +178,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
-      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -186,7 +186,7 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           python-version: "3.14"
           cache-suffix: plugin-load
@@ -204,7 +204,7 @@ jobs:
       # tokens are clamped to read-only regardless.
       packages: write
     steps:
-      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -212,7 +212,7 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           python-version: "3.14"
           cache-suffix: docker-smoke
