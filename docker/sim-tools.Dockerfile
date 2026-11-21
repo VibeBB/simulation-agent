@@ -16,7 +16,7 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION}@${UV_DIGEST} AS uv
 
 # Emscripten SDK stage: the mruby/c WASM leg runs UX .rb sources through
 # the mruby/c VM under Node — the same toolchain dashboard-agent uses.
-FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a AS emscripten
+FROM emscripten/emsdk:7.0.0@sha256:6bd7aef93408b10bf7b36642cb7c91119b302f720b9ec2d20439f73cf07fe894 AS emscripten
 
 # mruby/mrubyc build stage: mrbc compiles UX .rb sources into bytecode
 # linked into the mruby/c WASM VM. Same pins as firmware-agent
