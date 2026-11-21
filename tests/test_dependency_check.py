@@ -63,7 +63,7 @@ def test_docker_dependency_surfaces_match_simulation_image():
     assert digest_status.current.startswith("sha256:")
     assert digest_status.note.startswith("compare the immutable digest")
     statuses = check_docker_args(ROOT, list_remote_tags=lambda _url: ["0.13.0"])
-    assert [(status.name, status.current) for status in statuses] == [("UV_VERSION", "0.13.8")]
+    assert [(status.name, status.current) for status in statuses] == [("UV_VERSION", "0.13.9")]
 
 
 def test_docker_debs_track_debian_sid() -> None:

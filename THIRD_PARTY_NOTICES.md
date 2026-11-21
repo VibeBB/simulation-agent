@@ -9,7 +9,7 @@ solvers).
 | Component | Version pin | License | Use |
 |---|---|---|---|
 | Ubuntu 26.04 (Resolute) | `ubuntu:26.04@sha256:da6fc2be…` | various | Base image |
-| uv | `ghcr.io/astral-sh/uv:0.13.8` | Apache-2.0 / MIT | Python and package manager |
+| uv | `ghcr.io/astral-sh/uv:0.13.9` | Apache-2.0 / MIT | Python and package manager |
 | CPython | 3.12.x via uv / system | PSF-2.0 | Runtime |
 | ngspice | Debian sid `ngspice_47+ds-1_amd64.deb`, sha256 `fe4e9efa5990cb233addd67cea8f7c919791302bd499613c5ecdb08c67a94a32` | BSD-3-Clause | SPICE analysis (`.meas` batch runs) |
 | mruby | 4.0.0 tarball, sha256-verified at build (`MRUBY_VERSION`/`MRUBY_SHA256`; provides `mrbc`) | MIT | mruby/c bytecode compiler |
@@ -22,7 +22,7 @@ solvers).
 | pydantic | `>=2` via `uv.lock` | MIT | Contract models |
 | mcp | `>=2` via `uv.lock` | MIT | MCP server |
 | jsonschema | `>=4` via `uv.lock` | MIT | MCP tool-input validation |
-| openhands-sdk / openhands-tools | `1.62.0` (sdk-check group) | MIT | Plugin-load verification |
+| openhands-sdk / openhands-tools | `1.63.1` (sdk-check group) | MIT | Plugin-load verification |
 | coverage | `7.16.2` (dev group) | Apache-2.0 | Test coverage measurement |
 | pytest-cov | `7.1.0` (dev group) | MIT | Pytest coverage integration |
 

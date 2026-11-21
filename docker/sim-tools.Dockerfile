@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=docker.io/library/ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
-ARG UV_VERSION=0.13.8
-ARG UV_DIGEST=sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85
+ARG UV_VERSION=0.13.9
+ARG UV_DIGEST=sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d
 # ngspice and calculix-ccx track Debian unstable (sid) instead of the
 # resolute apt pins so the image ships the newest solver releases; the
 # .debs are fetched from the permanent snapshot.debian.org archive and
