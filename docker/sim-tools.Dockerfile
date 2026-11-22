@@ -16,7 +16,7 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION}@${UV_DIGEST} AS uv
 
 # Emscripten SDK stage: the mruby/c WASM leg runs UX .rb sources through
 # the mruby/c VM under Node — the same toolchain dashboard-agent uses.
-FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a AS emscripten
+FROM emscripten/emsdk:7.0.1@sha256:73aece2e0ab748487945ad117b79fc4d277e9f656e54fc800a9b1a0a6562715b AS emscripten
 
 # mruby/mrubyc build stage: mrbc compiles UX .rb sources into bytecode
 # linked into the mruby/c WASM VM. Same pins as firmware-agent
@@ -121,14 +121,13 @@ RUN apt-sources-fallback \
         python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# The pinned emsdk stage vendors vite 8.3.1 inside the emscripten
-# toolchain (CVE-2026-112942, fixed in 8.3.5) and undici < 6.29.1 inside
-# its bundled npm; patch both — vite via npm --prefix (same pattern as
-# dashboard-agent's emsdk patches), undici via a sha256-verified tarball
-# swap — and fail the build if a landed version is still vulnerable.
-RUN npm --prefix /opt/emsdk/upstream/emscripten install --no-save --no-audit --no-fund vite@8.3.5 \
-    && node -p "require('/opt/emsdk/upstream/emscripten/node_modules/vite/package.json').version" | grep -qx '8.3.5' \
-    && for npm_root in /opt/emsdk/node/*/lib/node_modules/npm/node_modules; do \
+# The pinned emsdk 7.0.1 stage already vendors vite 8.3.5 — the
+# CVE-2026-112942 fix version — so no forced install is needed (same
+# outcome as dashboard-agent's emsdk 7.0.0 re-scan). Its bundled npm
+# still vendors undici < 6.29.1; patched in place via a
+# sha256-verified tarball swap — and fail the build if a landed
+# version is still vulnerable.
+RUN for npm_root in /opt/emsdk/node/*/lib/node_modules/npm/node_modules; do \
         test -d "$npm_root/undici" \
         && curl --fail --location --silent --show-error \
             --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
