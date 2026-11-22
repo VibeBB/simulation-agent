@@ -50,6 +50,27 @@ Full changelog review: [SDK v1.62.0 feature evaluation](research/sdk-v1.62.0-fea
 | `npm-bundled-undici` swap | deferred | Checker flags the swap removable (latest npm vendors the fix), but it patches the emsdk stage's bundled npm; stays until the emsdk stage rebases. |
 | Python 3.15 | deferred | fastuuid 0.14.0 still lacks cp315 wheels; deferral carried forward. |
 
+### 2026-11-22 — emsdk 7.0.1
+
+Emscripten SDK `6.0.13` -> `7.0.1` (`FROM` tag + digest re-pinned).
+Upstream changelog 6.0.13..7.0.1 reviewed: JS tools rebundled with
+rolldown, embind link-time invokers, `struct_info.json` cDefines exposed
+as const JS symbols, zlib port 1.3.2 -> 1.4, Safari pthreads
+`emscripten_get_now` fix, JSPI minimum-browser defaults — no removal
+that touches the mruby/c WASM leg or the bundled-node runner.
+
+Vendored-toolchain re-scan (Trivy 0.76.2, CRITICAL/HIGH,
+`emscripten/emsdk:7.0.1` scanned directly): the vendored tsgo binary is
+still built with Go 1.26.4 (all stdlib/x/text waivers carry over), the
+google-closure-compiler jar still shades guava 33.4.6-jre
+(CVE-2026-102554 waiver carries over), and the bundled npm 11.17.0 tree
+still ships brace-expansion 5.0.6, tar 7.5.16 (CRITICAL), ip-address,
+picomatch and undici 6.26.0 — so every existing `.trivyignore` waiver
+stays, and the undici 6.29.1 in-place swap remains required. Vendored
+`vite` is 8.3.5 in the new stage — already the CVE-2026-112942 fix
+version — so the `npm --prefix ... vite@8.3.5` forced-install RUN was
+dropped (same outcome as dashboard-agent's emsdk 7.0.0 re-scan).
+
 ### 2026-10-29 — sdk 1.59.0, uv 0.13.6, openEMS/kicad-rfsim pins
 
 Full changelog review: [SDK v1.59.0 feature evaluation](research/sdk-v1.59.0-feature-evaluation.md).

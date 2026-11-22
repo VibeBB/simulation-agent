@@ -68,4 +68,4 @@ Primary sources:
 | ossf/scorecard-action | v2.5.0 -> v2.6.0 | adopted | Scorecard v5.7.0. New `fail_on_publish_error` input evaluated and not adopted: result publishing must never fail the required scorecard check. Example-workflow additions not applicable. |
 | openEMS | e4cd0150 -> f1d021db | adopted | HEAD of the vendored checkout; smoke gates cover it. |
 | npm-bundled-undici deferral | `latest` refreshed to `6.29.1 (npm 12.2.3)` | deferred (kept) | Same reasoning as firmware-agent. |
-| emsdk | stays 6.0.13 (latest 7.0.0) | deferred | Major base bump pending a Trivy re-scan of the new base. |
+| emsdk | 6.0.13 -> 7.0.1 | adopted 2026-11-22 | Deferred at sweep time pending a Trivy re-scan; adopted the next day after scanning `emscripten/emsdk:7.0.1` directly — every waiver carries over, the vite forced install was dropped (vendored 8.3.5 already the fix), undici swap stays (npm still 11.17.0). See `docs/dependency-updates.md` 2026-11-22. |
