@@ -147,6 +147,7 @@ def _compile(
     argv = [
         str(shutil.which("emcc")),
         "-O2",
+        "-DMRBC_SUPPORT_OP_EXT=1",
         f"-I{core_dir}",
         f"-I{hal_dir}",
         *[str(path) for path in sorted(core_sources)],

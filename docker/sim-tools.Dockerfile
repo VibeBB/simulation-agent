@@ -57,7 +57,7 @@ RUN curl --fail --location --silent --show-error \
 
 WORKDIR /opt/mruby-src
 RUN ruby ./minirake -j"$(nproc)" && cp build/host/bin/mrbc /opt/mruby/bin/mrbc \
-    && PATH=/opt/mruby/bin:$PATH make -C /opt/mrubyc
+    && PATH=/opt/mruby/bin:$PATH CFLAGS="-DMRBC_SUPPORT_OP_EXT=1" make -C /opt/mrubyc
 
 FROM ${BASE_IMAGE} AS sim-tools
 

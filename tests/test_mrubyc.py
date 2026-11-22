@@ -42,7 +42,10 @@ def tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     _stub(
         tmp_path,
         "emcc",
-        '#!/bin/sh\nfor last; do :; done\nmkdir -p "$(dirname "$last")" && touch "$last"\n',
+        "#!/bin/sh\n"
+        "for last; do :; done\n"
+        'mkdir -p "$(dirname "$last")" && touch "$last"\n'
+        'echo "$@" > "$last.argv"\n',
     )
     _stub(tmp_path, "node", "#!/bin/sh\necho 'kettle ready'\nexit 0\n")
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}")
@@ -76,10 +79,13 @@ class TestRun:
         ux.mkdir()
         (ux / "app.rb").write_text("puts 'kettle ready'\n", encoding="utf-8")
         section = MrubycSection(sources=["ux/app.rb"], expect=["kettle ready"])
-        checks = mrubyc.run_mrubyc(section, tmp_path, tmp_path / "out")
+        out = tmp_path / "out"
+        checks = mrubyc.run_mrubyc(section, tmp_path, out)
         verdicts = {check.id: check.verdict for check in checks}
         assert verdicts["mrubyc.vm"] == "pass"
         assert verdicts["mrubyc.transcript[kettle ready]"] == "pass"
+        emcc_argv = (out / "mrubyc" / "module.mjs.argv").read_text(encoding="utf-8")
+        assert "-DMRBC_SUPPORT_OP_EXT=1" in emcc_argv
 
     def test_transcript_miss_fails(self, tmp_path: Path, tools: Path) -> None:
         ux = tmp_path / "ux"
